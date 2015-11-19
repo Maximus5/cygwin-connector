@@ -5,25 +5,26 @@
 #include <stdlib.h>
 #include <algorithm>
 
-#if defined(__MINGW32__)
+//#if defined(__MINGW32__)
+//	#include <sys/types.h>
+//	#include <sys/fcntl.h>
+//	//#include <sys/wait.h>
+//	//#include <sys/select.h>
+//
+//	#include <wtypes.h>
+//	//#include <apisetcconv.h>
+//	#include <wincon.h>
+//	//#include <processenv.h>
+//	#include <winuser.h>
+//
+//	#include <pty.h>
+//	#include <unistd.h>
+//	#include <utmp.h>
+//#else
 	#include <sys/types.h>
 	#include <sys/fcntl.h>
 	//#include <sys/wait.h>
-	//#include <sys/select.h>
-
-	#include <wtypes.h>
-	//#include <apisetcconv.h>
-	#include <wincon.h>
-	//#include <processenv.h>
-	#include <winuser.h>
-
-	#include <pty.h>
-	#include <unistd.h>
-	#include <utmp.h>
-#else
-	#include <sys/types.h>
-	#include <sys/fcntl.h>
-	#include <sys/wait.h>
+	#include <wait.h>
 	#include <sys/select.h>
 
 	#include <w32api/wtypes.h>
@@ -35,7 +36,7 @@
 	#include <pty.h>
 	#include <unistd.h>
 	#include <utmp.h>
-#endif
+//#endif
 
 
 static int pty_fd = -1;
