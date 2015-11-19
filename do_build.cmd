@@ -7,7 +7,7 @@ set CHERE_INVOKING=1
 rem OK begin
 call "%~0" "%~d0\cygwin\bin" "conemu-cyg-32.exe" 32 "i686-pc-cygwin-" "i686-pc-mingw32-"
 rem call "%~0" "%~d0\cygwin\bin" "conemu-cyg-64.exe" 64 "x86_64-pc-cygwin-" "x86_64-w64-mingw32-"
-rem call "%~0" "%~d0\GitSDK\usr\bin" 64 "conemu-msys2-64.exe"
+call "%~0" "%~d0\GitSDK\usr\bin" "conemu-msys2-64.exe" 64
 rem OK ends
 
 
@@ -20,7 +20,7 @@ goto :EOF
 
 :do_build
 setlocal
-call cecho /yellow "Using: `%~1`, `%~4g++` and `%~5windres`"
+call cecho /yellow "Using: `%~1`, `%~4g++` and `%~5windres` for %~3bit"
 set "PATH=%~1;%windir%;%windir%\System32;%ConEmuDir%;%ConEmuBaseDir%;"
 
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
