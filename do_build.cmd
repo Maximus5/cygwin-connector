@@ -5,9 +5,9 @@ if NOT "%~1" == "" goto :do_build
 set CHERE_INVOKING=1
 
 rem OK begin
-call "%~0" "%~d0\cygwin\bin" "conemu-cyg-32.exe" 32 "i686-pc-cygwin-" "i686-pc-mingw32-"
-rem call "%~0" "%~d0\cygwin\bin" "conemu-cyg-64.exe" 64 "x86_64-pc-cygwin-" "x86_64-w64-mingw32-"
-call "%~0" "%~d0\GitSDK\usr\bin" "conemu-msys2-64.exe" 64
+rem call "%~0" "%~d0\cygwin\bin" "conemu-cyg-32.exe" 32 "i686-pc-cygwin-" "i686-pc-mingw32-"
+call "%~0" "%~d0\cygwin\bin" "conemu-cyg-64.exe" 64 "x86_64-pc-cygwin-" "x86_64-w64-mingw32-"
+rem call "%~0" "%~d0\GitSDK\usr\bin" "conemu-msys2-64.exe" 64
 rem OK ends
 
 
@@ -31,7 +31,7 @@ echo "%~5windres" %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o
 if errorlevel 1 goto print_errors
 
 echo "%~4g++" ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o
-"%~4g++" ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o 2> "%2.log"
+"%~4g++" ConEmuT.cpp -o %2 2> "%2.log"
 if errorlevel 1 goto print_errors
 
 endlocal
