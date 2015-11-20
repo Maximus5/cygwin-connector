@@ -73,7 +73,7 @@ windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%~2.log"
 if errorlevel 1 goto print_errors
 
 echo Compiling code and linking
-g++ ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% 2> "%~2.log"
+g++ ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% -s 2> "%~2.log"
 if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign
