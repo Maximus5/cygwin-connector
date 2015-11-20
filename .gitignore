@@ -1,2 +1,7 @@
 *.log
 *.bat
+*.o
+*.d
+*.exe
+*.ion
+*.jmp
