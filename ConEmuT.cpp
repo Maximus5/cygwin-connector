@@ -5,37 +5,33 @@
 #include <stdlib.h>
 #include <algorithm>
 
-//#if defined(__MINGW32__)
-//	#include <sys/types.h>
-//	#include <sys/fcntl.h>
-//	//#include <sys/wait.h>
-//	//#include <sys/select.h>
-//
-//	#include <wtypes.h>
-//	//#include <apisetcconv.h>
-//	#include <wincon.h>
-//	//#include <processenv.h>
-//	#include <winuser.h>
-//
-//	#include <pty.h>
-//	#include <unistd.h>
-//	#include <utmp.h>
+#include <sys/types.h>
+#include <sys/fcntl.h>
+#include <sys/wait.h>
+#include <sys/select.h>
+
+#include <w32api/wtypes.h>
+#include <w32api/apisetcconv.h>
+#include <w32api/wincon.h>
+#include <w32api/processenv.h>
+#include <w32api/winuser.h>
+
+//#include <pwd.h>
+//#include <fcntl.h>
+//#include <utmp.h>
+//#include <dirent.h>
+//#include <signal.h>
+//#include <sys/ioctl.h>
+//#include <sys/wait.h>
+//#include <sys/cygwin.h>
+
+#include <unistd.h>
+#include <utmp.h>
+
+//#if CYGWIN_VERSION_API_MINOR >= 93
+#include <pty.h>
 //#else
-	#include <sys/types.h>
-	#include <sys/fcntl.h>
-	//#include <sys/wait.h>
-	#include <wait.h>
-	#include <sys/select.h>
-
-	#include <w32api/wtypes.h>
-	#include <w32api/apisetcconv.h>
-	#include <w32api/wincon.h>
-	#include <w32api/processenv.h>
-	#include <w32api/winuser.h>
-
-	#include <pty.h>
-	#include <unistd.h>
-	#include <utmp.h>
+//int forkpty(int *, char *, struct termios *, struct winsize *);
 //#endif
 
 
