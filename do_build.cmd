@@ -1,5 +1,7 @@
 @echo off
 
+set sign_code=YES
+
 set cygwin32toolchain=T:\cygwin
 set cygwin64toolchain=T:\cygwin64
 set msys1toolchain=T:\MSYS\mingw\msys\1.0
@@ -8,11 +10,10 @@ set msys2x64toolchain=T:\MSYS\msys2-x64
 
 if NOT "%~1" == "" goto :%~1
 
-rem msys1 buld is failed yet
-rem call "%~0" msys1 conemu-msys-32.exe
-
 call "%~0" cygwin32 conemu-cyg-32.exe
 call "%~0" cygwin64 conemu-cyg-64.exe
+
+call "%~0" msys1 conemu-msys-32.exe
 call "%~0" msys32 conemu-msys2-32.exe
 call "%~0" msys64 conemu-msys2-64.exe
 
@@ -60,40 +61,27 @@ set DIRBIT=64
 set RCFLAGS=-F pe-x86-64
 goto :EOF
 
-cd /d "%~dp0"
 
-if NOT "%~1" == "" goto :do_build
-
-set CHERE_INVOKING=1
-
-rem OK begin
-call "%~0" "%~d0\cygwin\bin" "" 32 "i686-pc-cygwin-" "i686-pc-mingw32-"
-call "%~0" "%~d0\cygwin\bin" "conemu-cyg-64.exe" 64 "x86_64-pc-cygwin-" "x86_64-w64-mingw32-"
-call "%~0" "%~d0\GitSDK\usr\bin" "conemu-msys2-64.exe" 64
-rem OK ends
-
-
-rem call "%~0" "%~d0\cygwin64\bin" "conemu-cyg-64.exe"
-rem call "%~0" "%~d0\GitSDK\mingw32\bin;%~d0\GitSDK\usr\bin" "conemu-msys2-32.exe"
-rem call "%~0" "%~d0\MinGW\bin;%~d0\MinGW\msys32\bin" "conemu-msys1-32.exe"
-
-
-goto :EOF
 
 :build
-rem setlocal
+setlocal
 call cecho /yellow "Using: `%toolchain%` for `%~2` %DIRBIT%bit"
-rem set "PATH=%~1;%windir%;%windir%\System32;%ConEmuDir%;%ConEmuBaseDir%;"
 
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
+echo Compiling resources
 windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%~2.log"
 if errorlevel 1 goto print_errors
 
+echo Compiling code and linking
 g++ ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% 2> "%~2.log"
 if errorlevel 1 goto print_errors
 
-rem endlocal
-rem call sign %2
+if NOT "%sign_code%" == "YES" goto skip_sign
+echo Signing `%~2`
+call sign "%~2" > "%~2.log"
+:skip_sign
+
+endlocal
 call cecho /green "Build succeeded: %2"
 goto :EOF
 
