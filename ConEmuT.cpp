@@ -11,28 +11,25 @@
 #include <sys/select.h>
 
 #include <w32api/wtypes.h>
-#include <w32api/apisetcconv.h>
 #include <w32api/wincon.h>
-#include <w32api/processenv.h>
 #include <w32api/winuser.h>
-
-//#include <pwd.h>
-//#include <fcntl.h>
-//#include <utmp.h>
-//#include <dirent.h>
-//#include <signal.h>
-//#include <sys/ioctl.h>
-//#include <sys/wait.h>
-//#include <sys/cygwin.h>
 
 #include <unistd.h>
 #include <utmp.h>
 
-//#if CYGWIN_VERSION_API_MINOR >= 93
+#if defined(__MSYS__) && (__GNUC__ <= 3)
+
+#include "forkpty.h"
+#define _max max
+
+#else
+
+#include <w32api/processenv.h>
+#include <w32api/apisetcconv.h>
 #include <pty.h>
-//#else
-//int forkpty(int *, char *, struct termios *, struct winsize *);
-//#endif
+#define _max std::max
+
+#endif
 
 
 static int pty_fd = -1;
@@ -101,7 +98,7 @@ static int run()
 		}
 
 		FD_SET(realConIn, &fds);
-		const int fdsmax = std::max(pty_fd, realConIn) + 1;
+		const int fdsmax = _max(pty_fd, realConIn) + 1;
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
@@ -206,18 +203,18 @@ int main(int argc, char** argv)
 
 			if (!strncmp(dev, "/dev/", 5))
 				dev += 5;
-			strlcpy(ut.ut_line, dev, sizeof ut.ut_line);
+			lstrcpyn(ut.ut_line, dev, sizeof ut.ut_line);
 
 			if (dev[1] == 't' && dev[2] == 'y')
 				dev += 3;
 			else if (!strncmp(dev, "pts/", 4))
 				dev += 4;
-			strncpy(ut.ut_id, dev, sizeof ut.ut_id);
+			lstrcpyn(ut.ut_id, dev, sizeof ut.ut_id);
 
 			ut.ut_type = USER_PROCESS;
 			ut.ut_pid = pid;
 			ut.ut_time = time(0);
-			strlcpy(ut.ut_user, getlogin() ?: "?", sizeof ut.ut_user);
+			lstrcpyn(ut.ut_user, getlogin() ?: "?", sizeof ut.ut_user);
 			gethostname(ut.ut_host, sizeof ut.ut_host);
 			login(&ut);
 		}
