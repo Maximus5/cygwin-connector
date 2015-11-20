@@ -1,4 +1,4 @@
-﻿
+
 // from https://github.com/Alexpux/MSYS2-packages/issues/265
 
 #include <stdio.h>
