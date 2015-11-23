@@ -79,7 +79,7 @@ if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign
 echo Signing `%~2`
-call sign "%~2" > "%~2.log"
+call sign "%~2" > nul
 :skip_sign
 
 endlocal
