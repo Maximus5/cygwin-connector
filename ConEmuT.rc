@@ -2,8 +2,8 @@
 
 #include <windows.h>
 
-#define VERSION_N 0,1,0,0
-#define VERSION_S "0.1"
+#define VERSION_N 0,2,0,0
+#define VERSION_S "0.2"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION VERSION_N
