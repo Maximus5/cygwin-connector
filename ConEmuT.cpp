@@ -152,7 +152,13 @@ int main(int argc, char** argv)
 	winp.ws_xpixel = winp.ws_col * 3;
 	winp.ws_ypixel = winp.ws_row * 5;
 
-	setenv("TERM", "cygwin", true);
+	if (!getenv("TERM"))
+		setenv("TERM", "xterm-256color", true);
+	//#if defined(__MSYS__)
+	//setenv("TERM", "msys", true);
+	//#else
+	//setenv("TERM", "cygwin", true);
+	//#endif
 
 	SetConsoleCP(65001);
 	SetConsoleOutputCP(65001);
