@@ -76,7 +76,9 @@ static int run()
 	char buf[4096];
 	struct timeval timeout = {0, 100000}, *timeout_p = 0;
 
-	int realConIn = open("/dev/console", O_RDONLY);
+	int realConIn = open("/dev/conin", O_RDONLY);
+	if (realConIn == -1)
+		printf("Failed to open console input: /dev/conin\n");
 	fcntl(realConIn, F_SETFL, O_NONBLOCK);
 
 	for (;;)
@@ -97,7 +99,8 @@ static int run()
 				timeout_p = &timeout;
 		}
 
-		FD_SET(realConIn, &fds);
+		if (realConIn >= 0)
+			FD_SET(realConIn, &fds);
 		const int fdsmax = _max(pty_fd, realConIn) + 1;
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
