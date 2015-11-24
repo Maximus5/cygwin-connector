@@ -57,6 +57,8 @@ static void debug_log_format(const char* format,...)
 
 static int pty_fd = -1;
 static pid_t pid;
+static HANDLE input_thread = NULL;
+static DWORD input_tid = 0;
 
 static void sigexit(int sig)
 {
@@ -96,16 +98,52 @@ static bool read_console(int realConIn, char *buf, const int len)
 	return true;
 }
 
+static DWORD WINAPI read_input_thread( void * )
+{
+	HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
+	for (;;)
+	{
+		INPUT_RECORD r = {}; DWORD nReady = 0;
+		if (ReadConsoleInputW(h_input, &r, 1, &nReady) && nReady)
+		{
+			debug_log_format("read_input_thread: event %u received\n", r.EventType);
+			switch (r.EventType)
+			{
+			case KEY_EVENT:
+				if (r.Event.KeyEvent.uChar.UnicodeChar
+					&& r.Event.KeyEvent.bKeyDown)
+				{
+					char s[4];
+					int len = WideCharToMultiByte(CP_UTF8, 0, &r.Event.KeyEvent.uChar.UnicodeChar, 1, s, sizeof s, 0, 0);
+					if (len > 0)
+					{
+						ssize_t written = write(pty_fd, s, len);
+						debug_log_format("read_input_thread: writing %i bytes, written %i bytes\n", len, written);
+					}
+				}
+				break; // KEY_EVENT
+			}
+		}
+	}
+	return 0;
+}
+
 static int run()
 {
 	fd_set fds;
 	char buf[4096];
 	struct timeval timeout = {0, 100000}, *timeout_p = 0;
+	int realConIn = -1;
 
-	int realConIn = open("/dev/conin", O_RDONLY);
-	if (realConIn == -1)
-		printf("Failed to open console input: /dev/conin\n");
-	fcntl(realConIn, F_SETFL, O_NONBLOCK);
+	input_thread = CreateThread(NULL, 0, read_input_thread, NULL, 0, &input_tid);
+
+	if (!input_thread || (input_thread == INVALID_HANDLE_VALUE))
+	{
+		realConIn = open("/dev/conin", O_RDONLY);
+		if (realConIn == -1)
+			printf("Failed to open console input: /dev/conin\n");
+		fcntl(realConIn, F_SETFL, O_NONBLOCK);
+	}
 
 	for (;;)
 	{
