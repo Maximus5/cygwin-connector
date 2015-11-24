@@ -74,6 +74,9 @@ static void sigexit(int sig)
 
 static bool write_console(const char *buf, int len)
 {
+	if (len == -1)
+		len = strlen(buf);
+
 	while (len > 0)
 	{
 		DWORD written = 0;
@@ -194,6 +197,9 @@ static int run()
 			printf("Failed to open console input: /dev/conin\n");
 		fcntl(realConIn, F_SETFL, O_NONBLOCK);
 	}
+
+	// Request xterm keyboard emulation in ConEmu
+	write_console("\033]9;10\007", -1);
 
 	for (;;)
 	{
