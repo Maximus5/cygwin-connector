@@ -1,7 +1,10 @@
 @echo off
 
 set sign_code=YES
+
 set NO_DEBUG=-s
+rem set LOGGING=-D_USE_DEBUG_LOG
+set LOGGING=
 
 set cygwin32toolchain=T:\cygwin
 set cygwin64toolchain=T:\cygwin64
@@ -74,7 +77,7 @@ windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%~2.log"
 if errorlevel 1 goto print_errors
 
 echo Compiling code and linking
-g++ ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%~2.log"
+g++ %LOGGING% ConEmuT.cpp -o %2 -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%~2.log"
 if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign

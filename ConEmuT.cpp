@@ -31,12 +31,32 @@
 
 #endif
 
+static void debug_log(const char* text)
+{
+	#if defined(_USE_DEBUG_LOG)
+	OutputDebugStringA(text);
+	#endif
+}
+static void debug_log_format(const char* format,...)
+{
+	#if defined(_USE_DEBUG_LOG)
+	va_list ap;
+	char buf[255];
+	va_start(ap, format);
+	vsnprintf(buf, sizeof buf, format, ap);
+	va_end(ap);
+	debug_log(buf);
+	#endif
+}
+
+
 
 static int pty_fd = -1;
 static pid_t pid;
 
 static void sigexit(int sig)
 {
+	debug_log_format("signal %i received, pid=%i\n", sig, pid);
 	if (pid)
 		kill(-pid, SIGHUP);
 	signal(sig, SIG_DFL);
@@ -60,10 +80,12 @@ static bool write_console(const char *buf, int len)
 
 static bool read_console(int realConIn, char *buf, const int len)
 {
+	debug_log_format("read_console: calling read on %i\n", realConIn);
 	ssize_t c = read(realConIn, buf, len);
 	while (c > 0)
 	{
 		ssize_t written = write(pty_fd, buf, c);
+		debug_log_format("read_console: writing %i bytes, written %i bytes\n", c, written);
 		c -= written;
 		buf += written;
 	}
@@ -102,10 +124,12 @@ static int run()
 		if (realConIn >= 0)
 			FD_SET(realConIn, &fds);
 		const int fdsmax = _max(pty_fd, realConIn) + 1;
+		debug_log("run: calling select\n");
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
 			{
+				debug_log("run: pty_fd has data\n");
 				int len = read(pty_fd, buf, sizeof buf);
 
 				if (len > 0)
@@ -119,6 +143,7 @@ static int run()
 			}
 			else if (realConIn >= 0 && FD_ISSET(realConIn, &fds))
 			{
+				debug_log("run: con_in has data\n");
 				read_console(realConIn, buf, sizeof buf);
 			}
 		}
