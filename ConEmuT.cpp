@@ -59,12 +59,15 @@ static int pty_fd = -1;
 static pid_t pid;
 static HANDLE input_thread = NULL;
 static DWORD input_tid = 0;
+static void stop_threads();
+static bool termination = false;
 
 static void sigexit(int sig)
 {
 	debug_log_format("signal %i received, pid=%i\n", sig, pid);
 	if (pid)
 		kill(-pid, SIGHUP);
+	stop_threads();
 	signal(sig, SIG_DFL);
 	kill(getpid(), sig);
 }
@@ -124,7 +127,7 @@ static bool read_console(int realConIn, char *buf, const int len)
 static DWORD WINAPI read_input_thread( void * )
 {
 	HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
-	for (;;)
+	while (!termination)
 	{
 		INPUT_RECORD r = {}; DWORD nReady = 0;
 		if (ReadConsoleInputW(h_input, &r, 1, &nReady) && nReady)
@@ -159,6 +162,22 @@ static DWORD WINAPI read_input_thread( void * )
 	return 0;
 }
 
+static void stop_threads()
+{
+	termination = true;
+
+	if (input_thread && (WaitForSingleObject(input_thread,0) == WAIT_TIMEOUT))
+	{
+		HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
+		INPUT_RECORD r = {KEY_EVENT}; DWORD nWritten = 0;
+		WriteConsoleInputW(h_input, &r, 1, &nWritten);
+		if (WaitForSingleObject(input_thread, 5000) == WAIT_TIMEOUT)
+		{
+			TerminateThread(input_thread, 100);
+		}
+	}
+}
+
 static int run()
 {
 	fd_set fds;
@@ -188,7 +207,7 @@ static int run()
 			{
 				pid = 0;
 
-				return 0;
+				break;
 			}
 			else // Pty gone, but process still there: keep checking
 				timeout_p = &timeout;
@@ -221,6 +240,8 @@ static int run()
 			}
 		}
 	}
+
+	stop_threads();
 
 	return 0;
 }
