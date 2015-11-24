@@ -84,6 +84,29 @@ static bool write_console(const char *buf, int len)
 	return true;
 }
 
+static void child_resize(struct winsize *winp)
+{
+	if (pty_fd >= 0)
+		ioctl(pty_fd, TIOCSWINSZ, winp);
+}
+
+static bool query_console_size(struct winsize* winp)
+{
+	CONSOLE_SCREEN_BUFFER_INFO csbi = {};
+	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+	{
+		winp->ws_row = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+		winp->ws_col = csbi.dwSize.X;
+	}
+	else
+	{
+		winp->ws_row = 25;
+		winp->ws_col = 80;
+	}
+	winp->ws_xpixel = winp->ws_col * 3;
+	winp->ws_ypixel = winp->ws_row * 5;
+}
+
 static bool read_console(int realConIn, char *buf, const int len)
 {
 	debug_log_format("read_console: calling read on %i\n", realConIn);
@@ -109,6 +132,14 @@ static DWORD WINAPI read_input_thread( void * )
 			debug_log_format("read_input_thread: event %u received\n", r.EventType);
 			switch (r.EventType)
 			{
+			case WINDOW_BUFFER_SIZE_EVENT:
+				{
+					debug_log_format("read_input_thread: WindowBufferSize={%i,%i}\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
+					winsize winp;
+					if (query_console_size(&winp))
+						child_resize(&winp);
+				}
+				break;
 			case KEY_EVENT:
 				if (r.Event.KeyEvent.uChar.UnicodeChar
 					&& r.Event.KeyEvent.bKeyDown)
@@ -210,14 +241,7 @@ int main(int argc, char** argv)
 	signal(SIGQUIT, sigexit);
 
 	winsize winp = {25, 80};
-	CONSOLE_SCREEN_BUFFER_INFO csbi = {};
-	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
-	{
-		winp.ws_row = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-		winp.ws_col = csbi.dwSize.X;
-	}
-	winp.ws_xpixel = winp.ws_col * 3;
-	winp.ws_ypixel = winp.ws_row * 5;
+	query_console_size(&winp);
 
 	if (!getenv("TERM"))
 		setenv("TERM", "xterm-256color", true);
