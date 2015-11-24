@@ -4,8 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
+#include <stdarg.h>
+#include <errno.h>
+#include <process.h>
 
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
 #include <sys/select.h>
