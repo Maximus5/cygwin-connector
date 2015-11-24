@@ -6,11 +6,12 @@ set NO_DEBUG=-s
 rem set LOGGING=-D_USE_DEBUG_LOG
 set LOGGING=
 
-set cygwin32toolchain=T:\cygwin
-set cygwin64toolchain=T:\cygwin64
-set msys1toolchain=T:\MSYS\mingw\msys\1.0
-set msys2x32toolchain=T:\MSYS\msys2-x32
-set msys2x64toolchain=T:\MSYS\msys2-x64
+rem set cygwin32toolchain=%~d0\cygwin
+rem set cygwin64toolchain=%~d0\cygwin64
+rem set msys1toolchain=%~d0\MSYS\mingw\msys\1.0
+rem set msys2x32toolchain=%~d0\MSYS\msys2-x32
+rem set msys2x64toolchain=%~d0\MSYS\msys2-x64
+call "%~dp0set_vars.cmd"
 
 if NOT "%~1" == "" goto :%~1
 
