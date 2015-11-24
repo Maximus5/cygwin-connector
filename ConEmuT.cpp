@@ -316,6 +316,10 @@ int main(int argc, char** argv)
 
 		// sleep(2);
 		execvp(child_argv[0], child_argv);
+
+		// If we get here, exec failed.
+		fprintf(stderr, "\033[30;41m\033[KFailed to run %s: %s\033[m\r\n", child_argv[0], strerror(errno));
+
 		exit(255);
 	}
 	else
