@@ -314,7 +314,7 @@ int main(int argc, char** argv)
 		if (argv[0] && argv[1] && strcmp(argv[1], "-"))
 			child_argv = argv+1;
 
-		sleep(2);
+		// sleep(2);
 		execvp(child_argv[0], child_argv);
 		exit(255);
 	}
