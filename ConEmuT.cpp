@@ -189,7 +189,7 @@ static void stop_threads()
 static int run()
 {
 	fd_set fds;
-	char buf[4096];
+	char buf[4096+1];
 	struct timeval timeout = {0, 100000}, *timeout_p = 0;
 	int realConIn = -1;
 
@@ -233,10 +233,11 @@ static int run()
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
 			{
 				debug_log("run: pty_fd has data\n");
-				int len = read(pty_fd, buf, sizeof buf);
+				int len = read(pty_fd, buf, sizeof(buf)-1);
 
 				if (len > 0)
 				{
+					buf[len] = 0;
 					write_console(buf, len);
 				}
 				else
