@@ -259,6 +259,10 @@ static int run()
 int main(int argc, char** argv)
 {
 	struct termios attr;
+	const char* curTerm = NULL;
+	// Another options are: xterm, cygwin, msys
+	const char* newTerm = "xterm-256color";
+
 	tcgetattr(0, &attr);
 	attr.c_cc[VERASE] = CDEL;
 	attr.c_iflag = 0;
@@ -274,13 +278,10 @@ int main(int argc, char** argv)
 	winsize winp = {25, 80};
 	query_console_size(&winp);
 
-	if (!getenv("TERM"))
-		setenv("TERM", "xterm-256color", true);
-	//#if defined(__MSYS__)
-	//setenv("TERM", "msys", true);
-	//#else
-	//setenv("TERM", "cygwin", true);
-	//#endif
+	if (!(curTerm = getenv("TERM")))
+	{
+		setenv("TERM", newTerm, true);
+	}
 
 	SetConsoleCP(65001);
 	SetConsoleOutputCP(65001);
