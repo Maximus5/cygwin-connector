@@ -262,8 +262,8 @@ int main(int argc, char** argv)
 {
 	struct termios attr;
 	const char* curTerm = NULL;
-	// Another options are: xterm, cygwin, msys
-	const char* newTerm = "xterm-256color";
+	// Another options are: xterm, xterm-256color, cygwin, msys, etc.
+	const char* newTerm = "xterm";
 	bool force_set_term = false;
 	char pts[32/*TTY_NAME_MAX*/] = "";
 	char** cur_argv;
