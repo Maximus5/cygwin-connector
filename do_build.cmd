@@ -2,7 +2,7 @@
 
 rem Build parameters
 set sign_code=YES
-set debug_log=NO
+set debug_log=YES
 
 rem This defines paths to cygwin/msys toolchains
 call "%~dp0set_vars.cmd"
@@ -55,12 +55,12 @@ goto :build
 
 :bit32
 set DIRBIT=32
-set RCFLAGS=-F pe-i386
+set RCFLAGS=-F pe-i386 %LOGGING%
 goto :EOF
 
 :bit64
 set DIRBIT=64
-set RCFLAGS=-F pe-x86-64
+set RCFLAGS=-F pe-x86-64 %LOGGING%
 goto :EOF
 
 
