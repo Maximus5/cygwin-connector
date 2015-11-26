@@ -6,3 +6,4 @@
 *.ion
 *.jmp
 FarMenu.ini
+/tests
