@@ -262,6 +262,7 @@ int main(int argc, char** argv)
 	const char* curTerm = NULL;
 	// Another options are: xterm, cygwin, msys
 	const char* newTerm = "xterm-256color";
+	char pts[32/*TTY_NAME_MAX*/] = "";
 
 	tcgetattr(0, &attr);
 	attr.c_cc[VERASE] = CDEL;
@@ -286,7 +287,7 @@ int main(int argc, char** argv)
 	SetConsoleCP(65001);
 	SetConsoleOutputCP(65001);
 
-	pid = forkpty(&pty_fd, 0, 0, &winp);
+	pid = forkpty(&pty_fd, pts, 0, &winp);
 	// Error in fork?
 	if (pid < 0)
 	{
