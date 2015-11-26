@@ -262,6 +262,7 @@ int main(int argc, char** argv)
 	const char* curTerm = NULL;
 	// Another options are: xterm, cygwin, msys
 	const char* newTerm = "xterm-256color";
+	bool force_set_term = false;
 	char pts[32/*TTY_NAME_MAX*/] = "";
 	char** cur_argv;
 	char err_buf[120];
@@ -294,6 +295,14 @@ int main(int argc, char** argv)
 		{
 			verbose = true;
 		}
+		else if (strcmp(cur_argv[0], "-t") == 0)
+		{
+			cur_argv++;
+			if (!cur_argv[0])
+				break;
+			newTerm = cur_argv[0];
+			force_set_term = true;
+		}
 		else
 		{
 			fprintf(stderr, "\033[31;40m\033[K{PID:%u} Unknown switch: %s\033[m\r\n", getpid(), cur_argv[0]);
@@ -319,11 +328,11 @@ int main(int argc, char** argv)
 	winsize winp = {25, 80};
 	query_console_size(&winp);
 
-	if (!(curTerm = getenv("TERM")))
+	if (!(curTerm = getenv("TERM")) || force_set_term)
 	{
 		if (verbose)
 		{
-			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} Declaring TERM: `%s`\033[m\r\n", getpid(), newTerm);
+			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} Declaring TERM: `%s` (was: `%s`)\033[m\r\n", getpid(), newTerm, curTerm ? curTerm : "");
 			write_console(err_buf, -1);
 		}
 
