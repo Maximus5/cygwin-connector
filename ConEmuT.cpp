@@ -263,6 +263,38 @@ int main(int argc, char** argv)
 	// Another options are: xterm, cygwin, msys
 	const char* newTerm = "xterm-256color";
 	char pts[32/*TTY_NAME_MAX*/] = "";
+	char** cur_argv;
+	char err_buf[120];
+	bool verbose = false;
+
+	cur_argv = argv[0] ? argv+1 : argv;
+	while (cur_argv[0])
+	{
+		// Last "-" means "run default shell"
+		if (strcmp(cur_argv[0], "-") == 0)
+		{
+			cur_argv++;
+			break;
+		}
+		// End of switches, shell command line is expected here
+		if (cur_argv[0][0] != '-')
+		{
+			break;
+		}
+		// Check known switches
+		else if (strcmp(cur_argv[0], "--verbose") == 0)
+		{
+			verbose = true;
+		}
+		else
+		{
+			fprintf(stderr, "\033[31;40m\033[K{PID:%u} Unknown switch: %s\033[m\r\n", getpid(), cur_argv[0]);
+			exit(255);
+		}
+
+		// Next switch
+		cur_argv++;
+	}
 
 	tcgetattr(0, &attr);
 	attr.c_cc[VERASE] = CDEL;
@@ -281,7 +313,18 @@ int main(int argc, char** argv)
 
 	if (!(curTerm = getenv("TERM")))
 	{
+		if (verbose)
+		{
+			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} Declaring TERM: `%s`\033[m\r\n", getpid(), newTerm);
+			write_console(err_buf, -1);
+		}
+
 		setenv("TERM", newTerm, true);
+	}
+	else if (verbose)
+	{
+		snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} TERM already defined: `%s`\033[m\r\n", getpid(), curTerm);
+		write_console(err_buf, -1);
 	}
 
 	SetConsoleCP(65001);
@@ -319,10 +362,12 @@ int main(int argc, char** argv)
 
 		// Invoke command
 		char * const def_argv[] = {"/usr/bin/sh", "-l", "-i", NULL};
-		char * const * child_argv = def_argv;
+		char * const * child_argv = cur_argv[0] ? cur_argv : def_argv;
 
-		if (argv[0] && argv[1] && strcmp(argv[1], "-"))
-			child_argv = argv+1;
+		if (verbose)
+		{
+			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s`\033[m\r\n", getpid(), child_argv[0]);
+		}
 
 		// sleep(2);
 		execvp(child_argv[0], child_argv);
@@ -335,6 +380,12 @@ int main(int argc, char** argv)
 	// Parent process
 	else
 	{
+		if (verbose)
+		{
+			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} PTY was created: `%s`; Child PID:%u\033[m\r\n", getpid(), pts, pid);
+			write_console(err_buf, -1);
+		}
+
 		fcntl(pty_fd, F_SETFL, O_NONBLOCK);
 
 		char *dev = ptsname(pty_fd);
