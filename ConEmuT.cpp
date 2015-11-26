@@ -35,6 +35,8 @@
 
 #endif
 
+#include "version.h"
+
 static void debug_log(const char* text)
 {
 	#if defined(_USE_DEBUG_LOG)
@@ -302,6 +304,22 @@ int main(int argc, char** argv)
 				break;
 			newTerm = cur_argv[0];
 			force_set_term = true;
+		}
+		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
+		{
+			char* exe_name;
+			if (argv[0])
+			{
+				exe_name = strrchr(argv[0], '/');
+				if (exe_name) exe_name++; else exe_name = argv[0];
+			}
+			printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
+			printf("Usage: %s [switches] [- | shell [shell switches]]\n", exe_name ? exe_name : "conemu-*-*.exe");
+			printf("  -h, --help       this help\n");
+			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
+			printf("      --verbose    additional information during startup\n");
+			printf("      --debug      10 seconds sleep before startup\n");
+			exit(1);
 		}
 		else
 		{
