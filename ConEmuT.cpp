@@ -269,6 +269,7 @@ int main(int argc, char** argv)
 	char** cur_argv;
 	char err_buf[120];
 	bool verbose = false;
+	const char* work_dir = NULL;
 
 	cur_argv = argv[0] ? argv+1 : argv;
 	while (cur_argv[0])
@@ -305,6 +306,13 @@ int main(int argc, char** argv)
 			newTerm = cur_argv[0];
 			force_set_term = true;
 		}
+		else if (strcmp(cur_argv[0], "-d") == 0)
+		{
+			cur_argv++;
+			if (!cur_argv[0])
+				break;
+			work_dir = cur_argv[0];
+		}
 		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
 		{
 			char* exe_name;
@@ -316,6 +324,8 @@ int main(int argc, char** argv)
 			printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
 			printf("Usage: %s [switches] [- | shell [shell switches]]\n", exe_name ? exe_name : "conemu-*-*.exe");
 			printf("  -h, --help       this help\n");
+			printf("  -d <work-dir>    chdir to `work-dir` before starting shell\n");
+			printf("                   forces `set CHERE_INVOKING=1`\n");
 			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
 			printf("      --verbose    additional information during startup\n");
 			printf("      --debug      10 seconds sleep before startup\n");
@@ -399,9 +409,21 @@ int main(int argc, char** argv)
 		char * const def_argv[] = {"/usr/bin/sh", "-l", "-i", NULL};
 		char * const * child_argv = cur_argv[0] ? cur_argv : def_argv;
 
+		if (work_dir)
+		{
+			if (chdir(work_dir) == -1)
+			{
+				fprintf(stderr, "\033[30;41m\033[K{PID:%u} chdir `%s` failed: %s\033[m\r\n", getpid(), work_dir, strerror(errno));
+			}
+			else
+			{
+				setenv("CHERE_INVOKING", "1", true);
+			}
+		}
+
 		if (verbose)
 		{
-			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s`\033[m\r\n", getpid(), child_argv[0]);
+			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : "<current>");
 		}
 
 		// sleep(2);
