@@ -242,6 +242,7 @@ static int run()
 					pty_fd = -1;
 				}
 			}
+			// The following condition must not be true
 			else if (realConIn >= 0 && FD_ISSET(realConIn, &fds))
 			{
 				debug_log("run: con_in has data\n");
@@ -285,10 +286,12 @@ int main(int argc, char** argv)
 	SetConsoleOutputCP(65001);
 
 	pid = forkpty(&pty_fd, 0, 0, &winp);
+	// Error in fork?
 	if (pid < 0)
 	{
 
 	}
+	// Child process (going to start shell)
 	else if (!pid)
 	{
 		// Reset signals
@@ -325,6 +328,7 @@ int main(int argc, char** argv)
 
 		exit(255);
 	}
+	// Parent process
 	else
 	{
 		fcntl(pty_fd, F_SETFL, O_NONBLOCK);
