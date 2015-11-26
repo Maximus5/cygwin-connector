@@ -9,3 +9,6 @@
 @set msys1exe=conemu-msys-32.exe
 @set msys2x32exe=conemu-msys2-32.exe
 @set msys2x64exe=conemu-msys2-64.exe
+
+@set LOGGING=
+@if "%debug_log%"   == "YES" ( set "LOGGING=%LOGGING% -D_USE_DEBUG_LOG" )

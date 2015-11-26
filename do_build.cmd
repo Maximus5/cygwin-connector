@@ -1,27 +1,24 @@
 @echo off
 
+rem Build parameters
 set sign_code=YES
+set debug_log=NO
 
-set NO_DEBUG=-s
-rem set LOGGING=-D_USE_DEBUG_LOG
-set LOGGING=
-
-rem set cygwin32toolchain=%~d0\cygwin
-rem set cygwin64toolchain=%~d0\cygwin64
-rem set msys1toolchain=%~d0\MSYS\mingw\msys\1.0
-rem set msys2x32toolchain=%~d0\MSYS\msys2-x32
-rem set msys2x64toolchain=%~d0\MSYS\msys2-x64
+rem This defines paths to cygwin/msys toolchains
 call "%~dp0set_vars.cmd"
 
+rem User may call to build the target
+rem For example: do_build cygwin32 conemu-cyg-32.exe
 if NOT "%~1" == "" goto :%~1
 
+rem Start build process for all toolchains
 call "%~0" cygwin32 conemu-cyg-32.exe
 call "%~0" cygwin64 conemu-cyg-64.exe
-
 call "%~0" msys1 conemu-msys-32.exe
 call "%~0" msys32 conemu-msys2-32.exe
 call "%~0" msys64 conemu-msys2-64.exe
 
+rem Final cleaning
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
 
 goto :EOF
