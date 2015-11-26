@@ -150,12 +150,15 @@ static DWORD WINAPI read_input_thread( void * )
 				if (r.Event.KeyEvent.uChar.UnicodeChar
 					&& r.Event.KeyEvent.bKeyDown)
 				{
-					char s[4];
-					int len = WideCharToMultiByte(CP_UTF8, 0, &r.Event.KeyEvent.uChar.UnicodeChar, 1, s, sizeof s, 0, 0);
+					char s[5];
+					int len = WideCharToMultiByte(CP_UTF8, 0, &r.Event.KeyEvent.uChar.UnicodeChar, 1, s, sizeof(s)-1, 0, 0);
 					if (len > 0)
 					{
+						s[len] = 0;
 						ssize_t written = write(pty_fd, s, len);
-						debug_log_format("read_input_thread: writing %i bytes, written %i bytes\n", len, written);
+						#if defined(_USE_DEBUG_LOG)
+						debug_log_format("read_input_thread: `%s` written %i of %i bytes\n", s, written, len);
+						#endif
 					}
 				}
 				break; // KEY_EVENT
