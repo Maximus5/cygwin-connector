@@ -282,6 +282,14 @@ int main(int argc, char** argv)
 			break;
 		}
 		// Check known switches
+		if (strcmp(cur_argv[0], "--debug") == 0)
+		{
+			sleep(10);
+			//char* line = NULL; size_t size = 0;
+			//fprintf(stderr, "{PID:%u} terminal process started, press <Enter> to continue", getpid());
+			//getline(&line, &size, stdin);
+			//free(line);
+		}
 		else if (strcmp(cur_argv[0], "--verbose") == 0)
 		{
 			verbose = true;
