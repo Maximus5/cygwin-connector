@@ -70,7 +70,17 @@ BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 
 static void sigexit(int sig)
 {
-	debug_log_format("signal %i received, pid=%i\n", sig, pid);
+	if (verbose)
+	{
+		char log_buf[120];
+		snprintf(log_buf, sizeof log_buf, "\r\n\033[31;40m{PID:%u} signal %i received\033[m\r\n", getpid(), sig);
+		write_verbose(log_buf);
+	}
+	else
+	{
+		debug_log_format("signal %i received, pid=%i\n", sig, pid);
+	}
+
 	if (pid)
 		kill(-pid, SIGHUP);
 	stop_threads();
