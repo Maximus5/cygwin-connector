@@ -35,6 +35,9 @@
 
 #endif
 
+bool verbose = false;
+static bool write_verbose(const char *buf);
+
 #include "version.h"
 
 static void debug_log(const char* text)
@@ -90,6 +93,14 @@ static bool write_console(const char *buf, int len)
 		buf += written;
 	}
 	return true;
+}
+
+static bool write_verbose(const char *buf)
+{
+	if (!verbose)
+		return;
+	//OutputDebugStringA(buf); -- no need, Debug versions of ConEmuHk dump ANSI output automatically
+	write_console(buf, -1);
 }
 
 static void child_resize(struct winsize *winp)
@@ -362,7 +373,7 @@ int main(int argc, char** argv)
 		if (verbose)
 		{
 			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} Declaring TERM: `%s` (was: `%s`)\033[m\r\n", getpid(), newTerm, curTerm ? curTerm : "");
-			write_console(err_buf, -1);
+			write_verbose(err_buf);
 		}
 
 		setenv("TERM", newTerm, true);
@@ -370,7 +381,7 @@ int main(int argc, char** argv)
 	else if (verbose)
 	{
 		snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} TERM already defined: `%s`\033[m\r\n", getpid(), curTerm);
-		write_console(err_buf, -1);
+		write_verbose(err_buf);
 	}
 
 	SetConsoleCP(65001);
