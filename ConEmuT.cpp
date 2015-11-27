@@ -32,7 +32,7 @@
 #endif
 
 bool verbose = false;
-static bool write_verbose(const char *buf);
+static void write_verbose(const char *buf);
 
 #include "version.h"
 #include "forkpty.h"
@@ -92,7 +92,7 @@ static bool write_console(const char *buf, int len)
 	return true;
 }
 
-static bool write_verbose(const char *buf)
+static void write_verbose(const char *buf)
 {
 	if (!verbose)
 		return;
