@@ -276,7 +276,6 @@ int main(int argc, char** argv)
 	bool force_set_term = false;
 	char** cur_argv;
 	char err_buf[120];
-	bool verbose = false;
 	const char* work_dir = NULL;
 
 	cur_argv = argv[0] ? argv+1 : argv;
