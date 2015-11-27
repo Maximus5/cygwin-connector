@@ -8,8 +8,10 @@ provides POSIX environment for:
 
 
 ## Screenshots
-
-
+##### Just a `cat AnsiColors256.ans` from bash
+![cygwin](https://github.com/Maximus5/cygwin-connector/wiki/cygwin-256colors.png)
+##### 256 colors in Vim (Zenburn color scheme)
+![cygwin](https://github.com/Maximus5/cygwin-connector/wiki/cygwin-vim-zenburn.png)
 
 
 ## License (BSD 3-clause)
