@@ -23,14 +23,10 @@
 
 #if defined(__MSYS__) && (__GNUC__ <= 3)
 
-#include "forkpty.h"
 #define _max max
 
 #else
 
-#include <w32api/processenv.h>
-#include <w32api/apisetcconv.h>
-#include <pty.h>
 #define _max std::max
 
 #endif
@@ -39,6 +35,7 @@ bool verbose = false;
 static bool write_verbose(const char *buf);
 
 #include "version.h"
+#include "forkpty.h"
 
 static void debug_log(const char* text)
 {
@@ -277,7 +274,6 @@ int main(int argc, char** argv)
 	// Another options are: xterm, xterm-256color, cygwin, msys, etc.
 	const char* newTerm = "xterm";
 	bool force_set_term = false;
-	char pts[32/*TTY_NAME_MAX*/] = "";
 	char** cur_argv;
 	char err_buf[120];
 	bool verbose = false;
@@ -387,7 +383,7 @@ int main(int argc, char** argv)
 	SetConsoleCP(65001);
 	SetConsoleOutputCP(65001);
 
-	pid = forkpty(&pty_fd, pts, 0, &winp);
+	pid = ce_forkpty(&pty_fd, &winp);
 	// Error in fork?
 	if (pid < 0)
 	{
@@ -449,15 +445,16 @@ int main(int argc, char** argv)
 	// Parent process
 	else
 	{
+		char *dev = ptsname(pty_fd);
+
 		if (verbose)
 		{
-			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} PTY was created: `%s`; Child PID:%u\033[m\r\n", getpid(), pts, pid);
-			write_console(err_buf, -1);
+			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} PTY was created: `%s`; Child PID:%u\033[m\r\n", getpid(), dev ? dev : "<null>", pid);
+			write_verbose(err_buf);
 		}
 
 		fcntl(pty_fd, F_SETFL, O_NONBLOCK);
 
-		char *dev = ptsname(pty_fd);
 		if (dev)
 		{
 			struct utmp ut;
