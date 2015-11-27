@@ -21,15 +21,7 @@
 #include <unistd.h>
 #include <utmp.h>
 
-#if defined(__MSYS__) && (__GNUC__ <= 3)
-
-#define _max max
-
-#else
-
-#define _max std::max
-
-#endif
+#define _max(a,b) (((a) > (b)) ? (a) : (b))
 
 bool verbose = false;
 static void write_verbose(const char *buf);
