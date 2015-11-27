@@ -446,7 +446,7 @@ int main(int argc, char** argv)
 
 		if (verbose)
 		{
-			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : "<current>");
+			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : "<%cd%>");
 		}
 
 		// sleep(2);
