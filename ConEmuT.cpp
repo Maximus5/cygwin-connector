@@ -56,6 +56,18 @@ static DWORD input_tid = 0;
 static void stop_threads();
 static bool termination = false;
 
+BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
+{
+	if (verbose)
+	{
+		char log_buf[120];
+		snprintf(log_buf, sizeof log_buf, "\r\n\033[31;40m{PID:%u} CtrlHandlerRoutine(%u) triggered\033[m\r\n", getpid(), dwCtrlType);
+		write_verbose(log_buf);
+	}
+
+	return FALSE;
+}
+
 static void sigexit(int sig)
 {
 	debug_log_format("signal %i received, pid=%i\n", sig, pid);
@@ -339,6 +351,8 @@ int main(int argc, char** argv)
 		// Next switch
 		cur_argv++;
 	}
+
+	SetConsoleCtrlHandler(CtrlHandlerRoutine, true);
 
 	tcgetattr(0, &attr);
 	attr.c_cc[VERASE] = CDEL;
