@@ -417,6 +417,13 @@ int main(int argc, char** argv)
 		SetConsoleOutputCP(65001);
 	}
 
+	if (verbose)
+	{
+		const char* curHome = getenv("HOME");
+		write_verbose("\r\n\033[31;40m{PID:%u} current $HOME is `%s`\033[m\r\n", getpid(), curHome ? curHome : "<null>");
+	}
+
+
 	// Create the terminal instance
 	pid = ce_forkpty(&pty_fd, &winp);
 	// Error in fork?
