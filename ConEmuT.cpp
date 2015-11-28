@@ -57,11 +57,42 @@ static DWORD input_tid = 0;
 static void stop_threads();
 static bool termination = false;
 
+// If ENABLE_PROCESSED_INPUT is set, cygwin application are terminated without opportunity to survive
+DWORD ProtectCtrlBreakTrap(HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE))
+{
+	DWORD conInMode = 0;
+	if (GetConsoleMode(h_input, &conInMode) && (conInMode & ENABLE_PROCESSED_INPUT))
+	{
+		if (verbose)
+			write_verbose("\033[31;40m{PID:%u,TID:%u} dropping ENABLE_PROCESSED_INPUT flag\033[m\r\n", getpid(), GetCurrentThreadId());
+		SetConsoleMode(h_input, (conInMode & ~ENABLE_PROCESSED_INPUT));
+	}
+	return conInMode;
+}
+
 BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
+	// We do not expect to receive CTRL_C_EVENT/CTRL_BREAK_EVENT because of ProtectCtrlBreakTrap
+
 	if (verbose)
 	{
 		write_verbose("\r\n\033[31;40m{PID:%u} CtrlHandlerRoutine(%u) triggered\033[m\r\n", getpid(), dwCtrlType);
+	}
+
+	switch (dwCtrlType)
+	{
+	case CTRL_C_EVENT:
+		break;
+	case CTRL_BREAK_EVENT:
+		return TRUE; // bypass
+	case CTRL_CLOSE_EVENT:
+		break;
+	case CTRL_LOGOFF_EVENT:
+		break;
+	case CTRL_SHUTDOWN_EVENT:
+		break;
+	default:
+		/*sprintf(szType, "ID=%u", dwCtrlType)*/;
 	}
 
 	return FALSE;
@@ -81,6 +112,18 @@ static void sigexit(int sig)
 	else
 	{
 		debug_log_format("signal %i received, pid=%i\n", sig, pid);
+	}
+
+	switch (sig)
+	{
+	case SIGINT:
+		// We do not expect to receive SIGINT because of ProtectCtrlBreakTrap
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} Passing ^C to client\033[m\r\n", getpid());
+		write(pty_fd, "\3", 1);
+		//if (pid)
+		//	kill(pid, sig); // or kill(-group, sig)
+		return;
 	}
 
 	if (pid)
@@ -166,6 +209,8 @@ static DWORD WINAPI read_input_thread( void * )
 	HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
 	while (!termination)
 	{
+		ProtectCtrlBreakTrap(h_input);
+
 		INPUT_RECORD r = {}; DWORD nReady = 0;
 		if (ReadConsoleInputW(h_input, &r, 1, &nReady) && nReady)
 		{
@@ -311,6 +356,7 @@ int main(int argc, char** argv)
 	bool force_set_term = false;
 	char** cur_argv;
 	const char* work_dir = NULL;
+	DWORD conInMode = 0;
 	UINT curCP = 0;
 
 	cur_argv = argv[0] ? argv+1 : argv;
@@ -387,8 +433,6 @@ int main(int argc, char** argv)
 		cur_argv++;
 	}
 
-	SetConsoleCtrlHandler(CtrlHandlerRoutine, true);
-
 	tcgetattr(0, &attr);
 	attr.c_cc[VERASE] = CDEL;
 	attr.c_iflag = 0;
@@ -400,6 +444,14 @@ int main(int argc, char** argv)
 	signal(SIGINT, sigexit);
 	signal(SIGTERM, sigexit);
 	signal(SIGQUIT, sigexit);
+
+	SetConsoleCtrlHandler(CtrlHandlerRoutine, true);
+
+	if (!((conInMode = ProtectCtrlBreakTrap()) & ENABLE_PROCESSED_INPUT))
+	{
+		if (verbose)
+			write_verbose("\033[31;40m{PID:%u} Flag ENABLE_PROCESSED_INPUT was not set\033[m\r\n", getpid());
+	}
 
 	winsize winp = {25, 80};
 	query_console_size(&winp);
@@ -531,6 +583,13 @@ int main(int argc, char** argv)
 			login(&ut);
 		}
 		run();
+	}
+
+	if (conInMode)
+	{
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} reverting ConInMode to 0x%08X\033[m\r\n", getpid(), conInMode);
+		SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), conInMode);
 	}
 
 	if (GetConsoleCP() != curCP)
