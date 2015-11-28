@@ -37,12 +37,10 @@ int ce_login_tty(int fd)
 {
 	char* fdname;
 	int   newfd;
-	char  log_buf[200];
 
 	if (verbose)
 	{
-		snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} ce_login_tty(%i), calling setsid\033[m\r\n", getpid(), fd);
-		write_verbose(log_buf);
+		write_verbose("\033[31;40m{PID:%u} ce_login_tty(%i), calling setsid\033[m\r\n", getpid(), fd);
 	}
 
 	if (setsid() == -1)
@@ -55,10 +53,7 @@ int ce_login_tty(int fd)
 	{
 		if (verbose)
 		{
-			snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} preparing stdin(%i), stdout(%i), strerr(%i) for '", getpid(), STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-			write_verbose(log_buf);
-			write_verbose(fdname);
-			write_verbose("'\033[m\r\n");
+			write_verbose("\033[31;40m{PID:%u} preparing stdin(%i), stdout(%i), strerr(%i) for '%s'\033[m\r\n", getpid(), STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, fdname);
 		}
 
 		if (fd != STDIN_FILENO)
@@ -73,8 +68,7 @@ int ce_login_tty(int fd)
 	}
 	else if (verbose)
 	{
-		snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} ttyname(%i) returned null\033[m\r\n", getpid(), fd);
-		write_verbose(log_buf);
+		write_verbose("\033[31;40m{PID:%u} ttyname(%i) returned null\033[m\r\n", getpid(), fd);
 	}
 
 	dup2 (fd, STDIN_FILENO);
@@ -93,20 +87,17 @@ int ce_openpty(int *amaster, int *aslave,
 {
 	int   master, slave;
 	char* pts;
-	char  log_buf[200];
 
 	if (verbose)
 	{
-		snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} creating master '/dev/ptmx'\033[m\r\n", getpid());
-		write_verbose(log_buf);
+		write_verbose("\033[31;40m{PID:%u} creating master '/dev/ptmx'\033[m\r\n", getpid());
 	}
 
 	if ((master = open ("/dev/ptmx", O_RDWR | O_NOCTTY)) >= 0)
 	{
 		if (verbose)
 		{
-			snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} master handle is (%i)\033[m\r\n", getpid(), master);
-			write_verbose(log_buf);
+			write_verbose("\033[31;40m{PID:%u} master handle is (%i)\033[m\r\n", getpid(), master);
 		}
 
 		grantpt(master);
@@ -115,18 +106,14 @@ int ce_openpty(int *amaster, int *aslave,
 		pts = ptsname(master);
 		if (verbose)
 		{
-			snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} opening slave '", getpid());
-			write_verbose(log_buf);
-			write_verbose(pts ? pts : "<null>");
-			write_verbose("'\033[m\r\n");
+			write_verbose("\033[31;40m{PID:%u} opening slave '%s'\033[m\r\n", getpid(), pts ? pts : "<null>");
 		}
 
 		if ((slave = open (pts, O_RDWR | O_NOCTTY)) >= 0)
 		{
 			if (verbose)
 			{
-				snprintf(log_buf, sizeof log_buf, "\033[31;40m{PID:%u} slave handle is (%i)\033[m\r\n", getpid(), slave);
-				write_verbose(log_buf);
+				write_verbose("\033[31;40m{PID:%u} slave handle is (%i)\033[m\r\n", getpid(), slave);
 			}
 
 			if (amaster)

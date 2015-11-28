@@ -24,7 +24,7 @@
 #define _max(a,b) (((a) > (b)) ? (a) : (b))
 
 bool verbose = false;
-static void write_verbose(const char *buf);
+static void write_verbose(const char *buf, ...);
 
 #include "version.h"
 #include "forkpty.h"
@@ -60,9 +60,7 @@ BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
 	if (verbose)
 	{
-		char log_buf[120];
-		snprintf(log_buf, sizeof log_buf, "\r\n\033[31;40m{PID:%u} CtrlHandlerRoutine(%u) triggered\033[m\r\n", getpid(), dwCtrlType);
-		write_verbose(log_buf);
+		write_verbose("\r\n\033[31;40m{PID:%u} CtrlHandlerRoutine(%u) triggered\033[m\r\n", getpid(), dwCtrlType);
 	}
 
 	return FALSE;
@@ -72,9 +70,7 @@ static void sigexit(int sig)
 {
 	if (verbose)
 	{
-		char log_buf[120];
-		snprintf(log_buf, sizeof log_buf, "\r\n\033[31;40m{PID:%u} signal %i received\033[m\r\n", getpid(), sig);
-		write_verbose(log_buf);
+		write_verbose("\r\n\033[31;40m{PID:%u} signal %i received\033[m\r\n", getpid(), sig);
 	}
 	else
 	{
@@ -106,12 +102,20 @@ static bool write_console(const char *buf, int len)
 	return true;
 }
 
-static void write_verbose(const char *buf)
+// Don't check for `verbose` flag here, the function may be used in other places
+static void write_verbose(const char *buf, ...)
 {
-	if (!verbose)
-		return;
 	//OutputDebugStringA(buf); -- no need, Debug versions of ConEmuHk dump ANSI output automatically
-	write_console(buf, -1);
+	char szBuf[1024]; // don't use static here!
+	va_list args;
+	int ilen = -1;
+	if (strchr(buf, '%'))
+	{
+		va_start(args, buf);
+		ilen = vsnprintf(szBuf, sizeof(szBuf) - 1, buf, args);
+		va_end(args);
+	}
+	write_console((ilen > 0) ? szBuf : buf, -1);
 }
 
 static void child_resize(struct winsize *winp)
@@ -196,6 +200,11 @@ static void stop_threads()
 {
 	termination = true;
 
+	if (verbose)
+	{
+		write_verbose("\r\n\033[31;40m{PID:%u} Stopping our threads\033[m\r\n", getpid());
+	}
+
 	if (input_thread && (WaitForSingleObject(input_thread,0) == WAIT_TIMEOUT))
 	{
 		HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
@@ -238,8 +247,12 @@ static int run()
 			int status;
 			if (waitpid(pid, &status, WNOHANG) == pid)
 			{
-				pid = 0;
+				if (verbose)
+				{
+					write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated\033[m\r\n", getpid(), pid);
+				}
 
+				pid = 0;
 				break;
 			}
 			else // Pty gone, but process still there: keep checking
@@ -289,7 +302,6 @@ int main(int argc, char** argv)
 	const char* newTerm = "xterm";
 	bool force_set_term = false;
 	char** cur_argv;
-	char err_buf[120];
 	const char* work_dir = NULL;
 
 	cur_argv = argv[0] ? argv+1 : argv;
@@ -383,16 +395,14 @@ int main(int argc, char** argv)
 	{
 		if (verbose)
 		{
-			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} Declaring TERM: `%s` (was: `%s`)\033[m\r\n", getpid(), newTerm, curTerm ? curTerm : "");
-			write_verbose(err_buf);
+			write_verbose("\033[31;40m{PID:%u} declaring TERM: `%s` (was: `%s`)\033[m\r\n", getpid(), newTerm, curTerm ? curTerm : "");
 		}
 
 		setenv("TERM", newTerm, true);
 	}
 	else if (verbose)
 	{
-		snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} TERM already defined: `%s`\033[m\r\n", getpid(), curTerm);
-		write_verbose(err_buf);
+		write_verbose("\033[31;40m{PID:%u} TERM already defined: `%s`\033[m\r\n", getpid(), curTerm);
 	}
 
 	SetConsoleCP(65001);
@@ -446,7 +456,9 @@ int main(int argc, char** argv)
 
 		if (verbose)
 		{
-			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : "<%cd%>");
+			char* cwd = work_dir ? NULL : getcwd(NULL, 0);
+			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : cwd ? cwd : "<%cd%>");
+			free(cwd);
 		}
 
 		// sleep(2);
@@ -464,8 +476,7 @@ int main(int argc, char** argv)
 
 		if (verbose)
 		{
-			snprintf(err_buf, sizeof err_buf, "\033[31;40m{PID:%u} PTY was created: `%s`; Child PID:%u\033[m\r\n", getpid(), dev ? dev : "<null>", pid);
-			write_verbose(err_buf);
+			write_verbose("\033[31;40m{PID:%u} PTY was created: `%s`; Child PID:%u\033[m\r\n", getpid(), dev ? dev : "<null>", pid);
 		}
 
 		fcntl(pty_fd, F_SETFL, O_NONBLOCK);
@@ -495,5 +506,7 @@ int main(int argc, char** argv)
 		run();
 	}
 
+	if (verbose)
+		write_verbose("\r\n\033[31;40m{PID:%u} normal exit from main\033[m\r\n", getpid());
 	return 0;
 }
