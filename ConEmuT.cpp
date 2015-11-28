@@ -24,6 +24,7 @@
 #define _max(a,b) (((a) > (b)) ? (a) : (b))
 
 bool verbose = false;
+bool debugger = false;
 static void write_verbose(const char *buf, ...);
 
 #include "version.h"
@@ -64,6 +65,11 @@ BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 	}
 
 	return FALSE;
+}
+
+static void stop_waiting_debugger(int sig)
+{
+	debugger = false;
 }
 
 static void sigexit(int sig)
@@ -324,11 +330,15 @@ int main(int argc, char** argv)
 		// Check known switches
 		if (strcmp(cur_argv[0], "--debug") == 0)
 		{
-			sleep(10);
-			//char* line = NULL; size_t size = 0;
-			//fprintf(stderr, "{PID:%u} terminal process started, press <Enter> to continue", getpid());
-			//getline(&line, &size, stdin);
-			//free(line);
+			signal(SIGINT, stop_waiting_debugger);
+			debugger = true;
+			write_verbose("\033[31;40m{PID:%u} press Ctrl-C to stop waiting for debugger\033[m", getpid());
+			for (int i = 0; (i < 60) && debugger && !IsDebuggerPresent(); i++)
+			{
+				sleep(1);
+				write_verbose(".");
+			}
+			write_verbose("\033[31;40m%s\033[m\r\n", IsDebuggerPresent() ? " debugger attached" : "debugger was not attached");
 		}
 		else if (strcmp(cur_argv[0], "--verbose") == 0)
 		{
