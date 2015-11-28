@@ -241,7 +241,9 @@ static int run()
 	{
 		FD_ZERO(&fds);
 		if (pty_fd >= 0)
+		{
 			FD_SET(pty_fd, &fds);
+		}
 		else if (pid)
 		{
 			int status;
@@ -408,6 +410,7 @@ int main(int argc, char** argv)
 	SetConsoleCP(65001);
 	SetConsoleOutputCP(65001);
 
+	// Create the terminal instance
 	pid = ce_forkpty(&pty_fd, &winp);
 	// Error in fork?
 	if (pid < 0)
