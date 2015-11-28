@@ -305,6 +305,7 @@ int main(int argc, char** argv)
 	bool force_set_term = false;
 	char** cur_argv;
 	const char* work_dir = NULL;
+	UINT curCP = 0;
 
 	cur_argv = argv[0] ? argv+1 : argv;
 	while (cur_argv[0])
@@ -407,8 +408,14 @@ int main(int argc, char** argv)
 		write_verbose("\033[31;40m{PID:%u} TERM already defined: `%s`\033[m\r\n", getpid(), curTerm);
 	}
 
-	SetConsoleCP(65001);
-	SetConsoleOutputCP(65001);
+	curCP = GetConsoleCP();
+	if (curCP != 65001)
+	{
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} changing console CP from %u to utf-8\033[m\r\n", getpid(), curCP);
+		SetConsoleCP(65001);
+		SetConsoleOutputCP(65001);
+	}
 
 	// Create the terminal instance
 	pid = ce_forkpty(&pty_fd, &winp);
@@ -507,6 +514,14 @@ int main(int argc, char** argv)
 			login(&ut);
 		}
 		run();
+	}
+
+	if (GetConsoleCP() != curCP)
+	{
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} reverting console CP from %u to %u\033[m\r\n", getpid(), GetConsoleCP(), curCP);
+		SetConsoleCP(curCP);
+		SetConsoleOutputCP(curCP);
 	}
 
 	if (verbose)
