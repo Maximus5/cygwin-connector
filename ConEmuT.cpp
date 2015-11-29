@@ -347,6 +347,36 @@ static int run()
 	return 0;
 }
 
+// switch `--keys` useful to check keyboard translations
+int test_read_keys()
+{
+	struct termios old = {0}, raw = {};
+	if (tcgetattr(0, &old) < 0)
+		perror("tcgetattr()");
+	raw = old;
+	raw.c_lflag &= ~(ICANON|ECHO);
+	raw.c_cc[VMIN] = 1;
+	raw.c_cc[VTIME] = 0;
+	if (tcsetattr(0, TCSANOW, &raw) < 0)
+		perror("tcsetattr()");
+
+	for (;;)
+	{
+		int c = fgetc(stdin);
+		if (c > 32 && c != 0x7F)
+			printf("<x%02X:%c>", c, c);
+		else if (c == 0xA)
+			printf("<ENTER>\n");
+		else
+			printf("<x%02X>", c);
+	}
+
+	if (tcsetattr(0, TCSADRAIN, &old) < 0)
+		perror ("reverting tcsetattr()");
+
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	struct termios attr;
@@ -386,6 +416,10 @@ int main(int argc, char** argv)
 			}
 			write_verbose("\033[31;40m%s\033[m\r\n", IsDebuggerPresent() ? " debugger attached" : "debugger was not attached");
 		}
+		else if (strcmp(cur_argv[0], "--keys") == 0)
+		{
+			return test_read_keys();
+		}
 		else if (strcmp(cur_argv[0], "--verbose") == 0)
 		{
 			verbose = true;
@@ -419,6 +453,7 @@ int main(int argc, char** argv)
 			printf("  -d <work-dir>    chdir to `work-dir` before starting shell\n");
 			printf("                   forces `set CHERE_INVOKING=1`\n");
 			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
+			printf("      --keys       read conin and print bare input\n");
 			printf("      --verbose    additional information during startup\n");
 			printf("      --debug      10 seconds sleep before startup\n");
 			exit(1);
