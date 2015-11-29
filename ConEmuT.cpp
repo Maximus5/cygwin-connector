@@ -455,7 +455,7 @@ int main(int argc, char** argv)
 			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
 			printf("      --keys       read conin and print bare input\n");
 			printf("      --verbose    additional information during startup\n");
-			printf("      --debug      10 seconds sleep before startup\n");
+			printf("      --debug      wait for debugger for 60 seconds\n");
 			exit(1);
 		}
 		else
