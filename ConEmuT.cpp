@@ -439,6 +439,11 @@ int main(int argc, char** argv)
 				break;
 			work_dir = cur_argv[0];
 		}
+		else if ((strcmp(cur_argv[0], "--version") == 0))
+		{
+			printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
+			exit(1);
+		}
 		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
 		{
 			char* exe_name;
@@ -455,6 +460,7 @@ int main(int argc, char** argv)
 			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
 			printf("      --keys       read conin and print bare input\n");
 			printf("      --verbose    additional information during startup\n");
+			printf("      --version    print version of this tool\n");
 			printf("      --debug      wait for debugger for 60 seconds\n");
 			exit(1);
 		}
