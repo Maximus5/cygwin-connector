@@ -87,10 +87,10 @@ BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 	case CTRL_BREAK_EVENT:
 		return TRUE; // bypass
 	case CTRL_CLOSE_EVENT:
-		break;
 	case CTRL_LOGOFF_EVENT:
-		break;
 	case CTRL_SHUTDOWN_EVENT:
+		if (pid)
+			kill(-pid, SIGHUP);
 		break;
 	default:
 		/*sprintf(szType, "ID=%u", dwCtrlType)*/;
