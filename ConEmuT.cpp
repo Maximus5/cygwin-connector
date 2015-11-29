@@ -26,6 +26,7 @@
 bool verbose = false;
 bool debugger = false;
 static void write_verbose(const char *buf, ...);
+static void print_version();
 
 #include "version.h"
 #include "forkpty.h"
@@ -351,6 +352,10 @@ static int run()
 int test_read_keys()
 {
 	struct termios old = {0}, raw = {};
+
+	print_version();
+	printf("Starting raw conin reader, press Ctrl+C to stop\n");
+
 	if (tcgetattr(0, &old) < 0)
 		perror("tcgetattr()");
 	raw = old;
@@ -375,6 +380,11 @@ int test_read_keys()
 		perror ("reverting tcsetattr()");
 
 	return 0;
+}
+
+static void print_version()
+{
+	printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
 }
 
 int main(int argc, char** argv)
@@ -441,7 +451,7 @@ int main(int argc, char** argv)
 		}
 		else if ((strcmp(cur_argv[0], "--version") == 0))
 		{
-			printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
+			print_version();
 			exit(1);
 		}
 		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
@@ -452,7 +462,7 @@ int main(int argc, char** argv)
 				exe_name = strrchr(argv[0], '/');
 				if (exe_name) exe_name++; else exe_name = argv[0];
 			}
-			printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
+			print_version();
 			printf("Usage: %s [switches] [- | shell [shell switches]]\n", exe_name ? exe_name : "conemu-*-*.exe");
 			printf("  -h, --help       this help\n");
 			printf("  -d <work-dir>    chdir to `work-dir` before starting shell\n");
