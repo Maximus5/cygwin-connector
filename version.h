@@ -1,6 +1,6 @@
 
-#define VERSION_N 0,3,0,0
-#define VERSION_S "0.3"
+#define VERSION_N 0,4,0,0
+#define VERSION_S "0.4"
 
 #if defined(_USE_DEBUG_LOG)
 #define VER_NAME " [debug]"
