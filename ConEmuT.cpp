@@ -33,6 +33,7 @@ static void print_version();
 #include "version.h"
 #include "forkpty.h"
 
+#define DEBUG_LOG_MAX_BUFFER 1024
 static void debug_log(const char* text)
 {
 	#if defined(_USE_DEBUG_LOG)
@@ -43,7 +44,7 @@ static void debug_log_format(const char* format,...)
 {
 	#if defined(_USE_DEBUG_LOG)
 	va_list ap;
-	char buf[255];
+	char buf[DEBUG_LOG_MAX_BUFFER];
 	va_start(ap, format);
 	vsnprintf(buf, sizeof buf, format, ap);
 	va_end(ap);
@@ -140,6 +141,8 @@ static bool write_console(const char *buf, int len)
 {
 	if (len == -1)
 		len = strlen(buf);
+
+	debug_log_format("%u:PID=%u:TID=%u: writing ANSI: %s\n", GetTickCount(), getpid(), GetCurrentThreadId(), (len > (DEBUG_LOG_MAX_BUFFER-80)) ? "<Too long text to use debug_log_format>" : buf);
 
 	while (len > 0)
 	{
