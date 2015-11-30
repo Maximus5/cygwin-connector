@@ -308,6 +308,7 @@ static int run()
 		else if (pid)
 		{
 			int status;
+			debug_log_format("%u:PID=%u:TID=%u: calling waitpid(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
 			if (waitpid(pid, &status, WNOHANG) == pid)
 			{
 				if (verbose)
@@ -320,17 +321,21 @@ static int run()
 			}
 			else // Pty gone, but process still there: keep checking
 				timeout_p = &timeout;
+			debug_log_format("%u:PID=%u:TID=%u: waitpid(%i) done\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
 		}
 
 		if (realConIn >= 0)
+		{
+			debug_log_format("%u:PID=%u:TID=%u: calling FD_SET(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), realConIn);
 			FD_SET(realConIn, &fds);
+		}
 		const int fdsmax = _max(pty_fd, realConIn) + 1;
-		debug_log("run: calling select\n");
+		debug_log_format("%u:PID=%u:TID=%u: calling select\n", GetTickCount(), getpid(), GetCurrentThreadId());
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
 			{
-				debug_log("run: pty_fd has data\n");
+				debug_log_format("%u:PID=%u:TID=%u: calling read(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pty_fd);
 				int len = read(pty_fd, buf, sizeof(buf)-1);
 
 				if (len > 0)
@@ -349,6 +354,10 @@ static int run()
 				debug_log("run: con_in has data\n");
 				read_console(realConIn, buf, sizeof buf);
 			}
+		}
+		else
+		{
+			debug_log_format("%u:PID=%u:TID=%u: select failed\n", GetTickCount(), getpid(), GetCurrentThreadId());
 		}
 	}
 
