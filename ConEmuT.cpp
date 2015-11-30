@@ -1,6 +1,8 @@
 
 // from https://github.com/Alexpux/MSYS2-packages/issues/265
 
+#undef _USE_DEBUG_LOG_INPUT
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
@@ -215,12 +217,16 @@ static DWORD WINAPI read_input_thread( void * )
 		INPUT_RECORD r = {}; DWORD nReady = 0;
 		if (ReadConsoleInputW(h_input, &r, 1, &nReady) && nReady)
 		{
+			#if defined(_USE_DEBUG_LOG_INPUT)
 			debug_log_format("read_input_thread: event %u received\n", r.EventType);
+			#endif
 			switch (r.EventType)
 			{
 			case WINDOW_BUFFER_SIZE_EVENT:
 				{
+					#if defined(_USE_DEBUG_LOG_INPUT)
 					debug_log_format("read_input_thread: WindowBufferSize={%i,%i}\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
+					#endif
 					winsize winp;
 					if (query_console_size(&winp))
 						child_resize(&winp);
@@ -236,7 +242,7 @@ static DWORD WINAPI read_input_thread( void * )
 					{
 						s[len] = 0;
 						ssize_t written = write(pty_fd, s, len);
-						#if defined(_USE_DEBUG_LOG)
+						#if defined(_USE_DEBUG_LOG_INPUT)
 						debug_log_format("read_input_thread: `%s` written %i of %i bytes\n", s, written, len);
 						#endif
 					}
