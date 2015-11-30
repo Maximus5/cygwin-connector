@@ -7,6 +7,12 @@ provides POSIX environment for:
 * [MSYS 2.0](https://msys2.github.io/): `conemu-msys2-32.exe` and `conemu-msys2-64.exe`.
 
 
+## WARNING
+
+* **Do not** run connector from cygwin or msys shell! Different cygwin/msys layers will cause problems!
+* Connector might be started as [ROOT PROCESS](https://conemu.github.io/en/RootProcess.html) or from some native shell (like cmd.exe) already started in ConEmu.
+
+
 ## Screenshots
 ##### Just a `cat AnsiColors256.ans` from bash
 ![cygwin](https://github.com/Maximus5/cygwin-connector/wiki/cygwin-256colors.png)
