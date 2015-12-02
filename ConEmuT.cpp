@@ -281,7 +281,9 @@ static void stop_threads()
 static int run()
 {
 	fd_set fds;
-	char buf[4096+1];
+	const int preferredCount = 280;
+	const int bufCount = 4096;
+	char buf[bufCount+1];
 	struct timeval timeout = {0, 100000}, *timeout_p = 0;
 	int realConIn = -1;
 
@@ -336,10 +338,17 @@ static int run()
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
 			{
 				debug_log_format("%u:PID=%u:TID=%u: calling read(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pty_fd);
-				int len = read(pty_fd, buf, sizeof(buf)-1);
+				int len = read(pty_fd, buf, bufCount);
 
 				if (len > 0)
 				{
+					while ((len+4) < preferredCount)
+					{
+						int addLen = read(pty_fd, buf+len, bufCount-len);
+						if (addLen <= 0)
+							break;
+						len += addLen;
+					}
 					buf[len] = 0;
 					write_console(buf, len);
 				}
