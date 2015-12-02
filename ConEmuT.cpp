@@ -450,6 +450,37 @@ static void print_environ(bool bChild)
 		write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
 }
 
+int print_isatty(bool bChild)
+{
+	bool isTty = true;
+	int iTty, errNo;
+	char* ttyName;
+
+	for (int f = STDIN_FILENO; f <= STDERR_FILENO; f++)
+	{
+		ttyName = ttyname(f);
+		iTty = isatty(f);
+		errNo = errno;
+		if (iTty == 1)
+		{
+			if (bChild)
+				fprintf(stdout, "\033[32;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, ttyName?ttyName:"<NULL>");
+			else
+				write_verbose("\033[32;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, ttyName?ttyName:"<NULL>");
+		}
+		else
+		{
+			if (bChild)
+				fprintf(stdout, "\033[31;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
+			else
+				write_verbose("\033[31;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
+			isTty = false;
+		}
+	}
+
+	return isTty ? 0 : 1;
+}
+
 int main(int argc, char** argv)
 {
 	struct termios attr;
@@ -503,6 +534,10 @@ int main(int argc, char** argv)
 			prn_env = true;
 			print_environ(false);
 		}
+		else if (strcmp(cur_argv[0], "--isatty") == 0)
+		{
+			exit(print_isatty(true));
+		}
 		else if (strcmp(cur_argv[0], "-t") == 0)
 		{
 			cur_argv++;
@@ -542,6 +577,7 @@ int main(int argc, char** argv)
 			printf("      --version    print version of this tool\n");
 			printf("      --debug      wait for debugger for 60 seconds\n");
 			printf("      --environ    print environment on startup\n");
+			printf("      --isatty     fo isatty checks and print pts names\n");
 			exit(1);
 		}
 		else
@@ -607,6 +643,10 @@ int main(int argc, char** argv)
 		write_verbose("\r\n\033[31;40m{PID:%u} current $HOME is `%s`\033[m\r\n", getpid(), curHome ? curHome : "<null>");
 	}
 
+	if (verbose)
+	{
+		print_isatty(false);
+	}
 
 	// Create the terminal instance
 	pid = ce_forkpty(&pty_fd, &winp);
@@ -657,6 +697,11 @@ int main(int argc, char** argv)
 
 		if (verbose)
 		{
+			print_isatty(true);
+		}
+
+		if (verbose)
+		{
 			char* cwd = work_dir ? NULL : getcwd(NULL, 0);
 			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : cwd ? cwd : "<%cd%>");
 			free(cwd);
@@ -684,6 +729,11 @@ int main(int argc, char** argv)
 		if (verbose)
 		{
 			write_verbose("\033[31;40m{PID:%u} PTY was created: `%s`; Child PID:%u\033[m\r\n", getpid(), dev ? dev : "<null>", pid);
+		}
+
+		if (verbose)
+		{
+			print_isatty(false);
 		}
 
 		fcntl(pty_fd, F_SETFL, O_NONBLOCK);
