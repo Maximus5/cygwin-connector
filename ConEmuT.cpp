@@ -333,6 +333,7 @@ static int run()
 		}
 		const int fdsmax = _max(pty_fd, realConIn) + 1;
 		debug_log_format("%u:PID=%u:TID=%u: calling select\n", GetTickCount(), getpid(), GetCurrentThreadId());
+		timeout.tv_usec = 100000;
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
