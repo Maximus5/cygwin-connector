@@ -455,8 +455,8 @@ int main(int argc, char** argv)
 	struct termios attr;
 	const char* curTerm = NULL;
 	// Another options are: xterm, xterm-256color, cygwin, msys, etc.
-	const char* newTerm = "xterm";
-	bool force_set_term = false;
+	const char* newTerm = "xterm-256color";
+	bool force_set_term = true;
 	char** cur_argv;
 	const char* work_dir = NULL;
 	DWORD conInMode = 0;
@@ -577,7 +577,8 @@ int main(int argc, char** argv)
 	winsize winp = {25, 80};
 	query_console_size(&winp);
 
-	if (!(curTerm = getenv("TERM")) || force_set_term)
+	curTerm = getenv("TERM");
+	if (!curTerm || force_set_term)
 	{
 		if (verbose)
 		{
