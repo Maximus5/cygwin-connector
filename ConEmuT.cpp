@@ -415,6 +415,41 @@ static void print_version()
 	printf("ConEmu cygwin/msys connector version %s\n", VERSION_S);
 }
 
+static void print_environ(bool bChild)
+{
+	char** pp = environ;
+
+	if (!pp)
+	{
+		if (bChild)
+			fprintf(stdout, "\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\n", getpid());
+		else
+			write_verbose("\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\n", getpid());
+		return;
+	}
+
+	if (bChild)
+		fprintf(stdout, "\033[31;40m{PID:%u} printing `environ` lines\033[m\n", getpid());
+	else
+		write_verbose("\033[31;40m{PID:%u} printing `environ` lines\033[m\n", getpid());
+
+	while (*pp)
+	{
+		if (bChild)
+			fprintf(stdout, "%s\n", *(pp++));
+		else
+		{
+			write_console(*(pp++), -1);
+			write_console("\n", 1);
+		}
+	}
+
+	if (bChild)
+		fprintf(stdout, "\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
+	else
+		write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
+}
+
 int main(int argc, char** argv)
 {
 	struct termios attr;
@@ -426,6 +461,7 @@ int main(int argc, char** argv)
 	const char* work_dir = NULL;
 	DWORD conInMode = 0;
 	UINT curCP = 0;
+	bool prn_env = false;
 
 	cur_argv = argv[0] ? argv+1 : argv;
 	while (cur_argv[0])
@@ -461,6 +497,11 @@ int main(int argc, char** argv)
 		else if (strcmp(cur_argv[0], "--verbose") == 0)
 		{
 			verbose = true;
+		}
+		else if (strcmp(cur_argv[0], "--environ") == 0)
+		{
+			prn_env = true;
+			print_environ(false);
 		}
 		else if (strcmp(cur_argv[0], "-t") == 0)
 		{
@@ -500,6 +541,7 @@ int main(int argc, char** argv)
 			printf("      --verbose    additional information during startup\n");
 			printf("      --version    print version of this tool\n");
 			printf("      --debug      wait for debugger for 60 seconds\n");
+			printf("      --environ    print environment on startup\n");
 			exit(1);
 		}
 		else
@@ -620,6 +662,12 @@ int main(int argc, char** argv)
 		}
 
 		// sleep(2);
+
+		if (prn_env)
+		{
+			print_environ(true);
+		}
+
 		execvp(child_argv[0], child_argv);
 
 		// If we get here, exec failed.
@@ -660,6 +708,11 @@ int main(int argc, char** argv)
 			lstrcpyn(ut.ut_user, getlogin() ?: "?", sizeof ut.ut_user);
 			gethostname(ut.ut_host, sizeof ut.ut_host);
 			login(&ut);
+
+			if (prn_env)
+			{
+				print_environ(false);
+			}
 		}
 		run();
 	}
