@@ -511,7 +511,7 @@ int main(int argc, char** argv)
 			newTerm = cur_argv[0];
 			force_set_term = true;
 		}
-		else if (strcmp(cur_argv[0], "-d") == 0)
+		else if ((strcmp(cur_argv[0], "-d") == 0) || (strcmp(cur_argv[0], "--dir") == 0))
 		{
 			cur_argv++;
 			if (!cur_argv[0])
@@ -534,7 +534,7 @@ int main(int argc, char** argv)
 			print_version();
 			printf("Usage: %s [switches] [- | shell [shell switches]]\n", exe_name ? exe_name : "conemu-*-*.exe");
 			printf("  -h, --help       this help\n");
-			printf("  -d <work-dir>    chdir to `work-dir` before starting shell\n");
+			printf("  -d, --dir <dir>  chdir to `dir` before starting shell\n");
 			printf("                   forces `set CHERE_INVOKING=1`\n");
 			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
 			printf("      --keys       read conin and print bare input\n");
