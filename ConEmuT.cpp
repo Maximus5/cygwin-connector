@@ -33,6 +33,108 @@ static void print_version();
 #include "version.h"
 #include "forkpty.h"
 
+
+enum RequestTermConnectorMode
+{
+	rtc_Start = 1,
+	rtc_Stop  = 2,
+};
+
+enum WriteProcessedStream
+{
+	wps_Output = 1,
+	wps_Error  = 2,
+};
+
+typedef struct tag_RequestTermConnectorParm
+{
+	// [IN]  size in bytes of this structure
+	DWORD cbSize;
+	// [IN]  requrested operation
+	RequestTermConnectorMode Mode;
+
+	// [IN]  dump initialization steps to console
+	BOOL bVerbose;
+
+	// [IN]  ttyname(STDOUT_FILENO)
+	LPCSTR pszTtyName;
+	// [IN]  $TERM
+	LPCSTR pszTerm;
+
+	// [OUT] If there were any errors, here may be some details
+	LPCSTR pszError;
+
+	// [OUT] This one is UNICODE
+	BOOL (WINAPI* ReadInput)(PINPUT_RECORD,DWORD,PDWORD);
+	// [OUT] But this is ANSI (UTF-8 is expected)
+	//       cbWrite==-1 : pBuffer contains ASCIIZ string, call strlen on it
+	BOOL (WINAPI* WriteText)(LPCSTR pBuffer, DWORD cbWrite, PDWORD pcbWritten, WriteProcessedStream nStream);
+} RequestTermConnectorParm;
+
+static RequestTermConnectorParm Connector = {};
+
+typedef int (WINAPI* RequestTermConnector_t)(/*[IN/OUT]*/RequestTermConnectorParm* Parm);
+static RequestTermConnector_t fnRequestTermConnector = NULL;
+
+int RequestTermConnector()
+{
+	int iRc;
+	HMODULE hConEmuHk;
+	char sModule[] =
+		#if defined(__x86_64__)
+			"ConEmuHk64.dll"
+		#else
+			"ConEmuHk.dll"
+		#endif
+			;
+
+	hConEmuHk = GetModuleHandleA(sModule);
+	if (hConEmuHk == NULL)
+	{
+		fprintf(stderr, "\r\n\033[31;40m{PID:%u} %s is not found, exiting\033[m\r\n", getpid(), sModule);
+		return -1;
+	}
+	fnRequestTermConnector = (RequestTermConnector_t)GetProcAddress(hConEmuHk, "RequestTermConnector");
+	if (fnRequestTermConnector == NULL)
+	{
+		fprintf(stderr, "\r\n\033[31;40m{PID:%u} RequestTermConnector function is not found, exiting\033[m\r\n", getpid());
+		return -1;
+	}
+
+	// Prepare arguments
+	memset(&Connector, 0, sizeof(Connector));
+	Connector.cbSize = sizeof(Connector);
+	Connector.Mode = rtc_Start;
+	Connector.pszTtyName = ttyname(STDOUT_FILENO);
+	Connector.pszTerm = getenv("TERM");
+
+	iRc = fnRequestTermConnector(&Connector);
+
+	if (iRc != 0)
+	{
+		fprintf(stderr, "\r\n\033[31;40m{PID:%u} RequestTermConnector failed (%i). %s\033[m\r\n", getpid(), iRc, Connector.pszError ? Connector.pszError : "");
+		return -1;
+	}
+
+	if (!Connector.ReadInput || !Connector.WriteText)
+	{
+		fprintf(stderr, "\r\n\033[31;40m{PID:%u} RequestTermConnector returned NULL. %s\033[m\r\n", getpid(), Connector.pszError ? Connector.pszError : "");
+		return -1;
+	}
+
+	return 0;
+}
+
+void StopTermConnector()
+{
+	if (fnRequestTermConnector)
+	{
+		Connector.cbSize = sizeof(Connector);
+		Connector.Mode = rtc_Stop;
+		fnRequestTermConnector(&Connector);
+	}
+}
+
 #define DEBUG_LOG_MAX_BUFFER 1024
 static void debug_log(const char* text)
 {
@@ -60,19 +162,6 @@ static HANDLE input_thread = NULL;
 static DWORD input_tid = 0;
 static void stop_threads();
 static bool termination = false;
-
-// If ENABLE_PROCESSED_INPUT is set, cygwin application are terminated without opportunity to survive
-DWORD ProtectCtrlBreakTrap(HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE))
-{
-	DWORD conInMode = 0;
-	if (GetConsoleMode(h_input, &conInMode) && (conInMode & ENABLE_PROCESSED_INPUT))
-	{
-		if (verbose)
-			write_verbose("\033[31;40m{PID:%u,TID:%u} dropping ENABLE_PROCESSED_INPUT flag\033[m\r\n", getpid(), GetCurrentThreadId());
-		SetConsoleMode(h_input, (conInMode & ~ENABLE_PROCESSED_INPUT));
-	}
-	return conInMode;
-}
 
 BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
@@ -146,14 +235,19 @@ static bool write_console(const char *buf, int len)
 
 	while (len > 0)
 	{
-		DWORD written = 0;
-		if (!WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), buf, len, &written, NULL))
-		{
+		DWORD written = 0; BOOL bRc;
+		if (Connector.WriteText)
+			bRc = Connector.WriteText(buf, len, &written, wps_Output);
+		else
+			bRc = WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), buf, len, &written, NULL);
+
+		if (!bRc)
 			return false;
-		}
+
 		len -= written;
 		buf += written;
 	}
+
 	return true;
 }
 
@@ -198,13 +292,10 @@ static bool query_console_size(struct winsize* winp)
 
 static DWORD WINAPI read_input_thread( void * )
 {
-	HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
 	while (!termination)
 	{
-		ProtectCtrlBreakTrap(h_input);
-
 		INPUT_RECORD r = {}; DWORD nReady = 0;
-		if (ReadConsoleInputW(h_input, &r, 1, &nReady) && nReady)
+		if (Connector.ReadInput(&r, 1, &nReady) && nReady)
 		{
 			#if defined(_USE_DEBUG_LOG_INPUT)
 			debug_log_format("read_input_thread: event %u received\n", r.EventType);
@@ -252,15 +343,11 @@ static void stop_threads()
 		write_verbose("\r\n\033[31;40m{PID:%u} Stopping our threads\033[m\r\n", getpid());
 	}
 
-	if (input_thread && (WaitForSingleObject(input_thread,0) == WAIT_TIMEOUT))
+	StopTermConnector();
+
+	if (input_thread && (WaitForSingleObject(input_thread, 5000) == WAIT_TIMEOUT))
 	{
-		HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
-		INPUT_RECORD r = {KEY_EVENT}; DWORD nWritten = 0;
-		WriteConsoleInputW(h_input, &r, 1, &nWritten);
-		if (WaitForSingleObject(input_thread, 5000) == WAIT_TIMEOUT)
-		{
-			TerminateThread(input_thread, 100);
-		}
+		TerminateThread(input_thread, 100);
 	}
 }
 
@@ -278,9 +365,6 @@ static int run()
 	{
 		return GetLastError() ? GetLastError() : 100;
 	}
-
-	// Request xterm keyboard emulation in ConEmu
-	write_console("\033]9;10\007", -1);
 
 	for (;;)
 	{
@@ -462,8 +546,6 @@ int main(int argc, char** argv)
 	bool force_set_term = true;
 	char** cur_argv;
 	const char* work_dir = NULL;
-	DWORD conInMode = 0;
-	UINT curCP = 0;
 	bool prn_env = false;
 
 	cur_argv = argv[0] ? argv+1 : argv;
@@ -562,6 +644,12 @@ int main(int argc, char** argv)
 		cur_argv++;
 	}
 
+	// Request xterm emulation in ConEmu, obtain callback functions
+	if (RequestTermConnector() != 0)
+	{
+		exit(200);
+	}
+
 	tcgetattr(0, &attr);
 	attr.c_cc[VERASE] = CDEL;
 	attr.c_iflag = 0;
@@ -575,12 +663,6 @@ int main(int argc, char** argv)
 	signal(SIGQUIT, sigexit);
 
 	SetConsoleCtrlHandler(CtrlHandlerRoutine, true);
-
-	if (!((conInMode = ProtectCtrlBreakTrap()) & ENABLE_PROCESSED_INPUT))
-	{
-		if (verbose)
-			write_verbose("\033[31;40m{PID:%u} Flag ENABLE_PROCESSED_INPUT was not set\033[m\r\n", getpid());
-	}
 
 	winsize winp = {25, 80};
 	query_console_size(&winp);
@@ -598,15 +680,6 @@ int main(int argc, char** argv)
 	else if (verbose)
 	{
 		write_verbose("\033[31;40m{PID:%u} TERM already defined: `%s`\033[m\r\n", getpid(), curTerm);
-	}
-
-	curCP = GetConsoleCP();
-	if (curCP != 65001)
-	{
-		if (verbose)
-			write_verbose("\r\n\033[31;40m{PID:%u} changing console CP from %u to utf-8\033[m\r\n", getpid(), curCP);
-		SetConsoleCP(65001);
-		SetConsoleOutputCP(65001);
 	}
 
 	if (verbose)
@@ -632,6 +705,10 @@ int main(int argc, char** argv)
 	// Child process (going to start shell)
 	else if (!pid)
 	{
+		// To be sure we will not call these functions in child
+		memset(&Connector, 0, sizeof(Connector));
+		fnRequestTermConnector = NULL;
+
 		// Reset signals
 		signal(SIGHUP, SIG_DFL);
 		signal(SIGINT, SIG_DFL);
@@ -740,20 +817,7 @@ int main(int argc, char** argv)
 		iMainRc = run();
 	}
 
-	if (conInMode)
-	{
-		if (verbose)
-			write_verbose("\r\n\033[31;40m{PID:%u} reverting ConInMode to 0x%08X\033[m\r\n", getpid(), conInMode);
-		SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), conInMode);
-	}
-
-	if (GetConsoleCP() != curCP)
-	{
-		if (verbose)
-			write_verbose("\r\n\033[31;40m{PID:%u} reverting console CP from %u to %u\033[m\r\n", getpid(), GetConsoleCP(), curCP);
-		SetConsoleCP(curCP);
-		SetConsoleOutputCP(curCP);
-	}
+	StopTermConnector();
 
 	if (verbose)
 		write_verbose("\r\n\033[31;40m{PID:%u} normal exit from main\033[m\r\n", getpid());
