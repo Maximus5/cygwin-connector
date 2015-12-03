@@ -135,24 +135,25 @@ void StopTermConnector()
 	}
 }
 
+#if defined(_USE_DEBUG_LOG)
 #define DEBUG_LOG_MAX_BUFFER 1024
 static void debug_log(const char* text)
 {
-	#if defined(_USE_DEBUG_LOG)
 	OutputDebugStringA(text);
-	#endif
 }
 static void debug_log_format(const char* format,...)
 {
-	#if defined(_USE_DEBUG_LOG)
 	va_list ap;
 	char buf[DEBUG_LOG_MAX_BUFFER];
 	va_start(ap, format);
 	vsnprintf(buf, sizeof buf, format, ap);
 	va_end(ap);
 	debug_log(buf);
-	#endif
 }
+#else
+#define debug_log(text)
+#define debug_log_format(format...)
+#endif
 
 
 
