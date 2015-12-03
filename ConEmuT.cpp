@@ -196,20 +196,6 @@ static bool query_console_size(struct winsize* winp)
 	winp->ws_ypixel = winp->ws_row * 5;
 }
 
-static bool read_console(int realConIn, char *buf, const int len)
-{
-	debug_log_format("read_console: calling read on %i\n", realConIn);
-	ssize_t c = read(realConIn, buf, len);
-	while (c > 0)
-	{
-		ssize_t written = write(pty_fd, buf, c);
-		debug_log_format("read_console: writing %i bytes, written %i bytes\n", c, written);
-		c -= written;
-		buf += written;
-	}
-	return true;
-}
-
 static DWORD WINAPI read_input_thread( void * )
 {
 	HANDLE h_input = GetStdHandle(STD_INPUT_HANDLE);
@@ -285,16 +271,12 @@ static int run()
 	const int bufCount = 4096;
 	char buf[bufCount+1];
 	struct timeval timeout = {0, 100000}, *timeout_p = 0;
-	int realConIn = -1;
 
 	input_thread = CreateThread(NULL, 0, read_input_thread, NULL, 0, &input_tid);
 
 	if (!input_thread || (input_thread == INVALID_HANDLE_VALUE))
 	{
-		realConIn = open("/dev/conin", O_RDONLY);
-		if (realConIn == -1)
-			printf("Failed to open console input: /dev/conin\n");
-		fcntl(realConIn, F_SETFL, O_NONBLOCK);
+		return GetLastError() ? GetLastError() : 100;
 	}
 
 	// Request xterm keyboard emulation in ConEmu
@@ -326,12 +308,7 @@ static int run()
 			debug_log_format("%u:PID=%u:TID=%u: waitpid(%i) done\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
 		}
 
-		if (realConIn >= 0)
-		{
-			debug_log_format("%u:PID=%u:TID=%u: calling FD_SET(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), realConIn);
-			FD_SET(realConIn, &fds);
-		}
-		const int fdsmax = _max(pty_fd, realConIn) + 1;
+		const int fdsmax = pty_fd + 1;
 		debug_log_format("%u:PID=%u:TID=%u: calling select\n", GetTickCount(), getpid(), GetCurrentThreadId());
 		timeout.tv_usec = 100000;
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
@@ -357,12 +334,6 @@ static int run()
 				{
 					pty_fd = -1;
 				}
-			}
-			// The following condition must not be true
-			else if (realConIn >= 0 && FD_ISSET(realConIn, &fds))
-			{
-				debug_log("run: con_in has data\n");
-				read_console(realConIn, buf, sizeof buf);
 			}
 		}
 		else
