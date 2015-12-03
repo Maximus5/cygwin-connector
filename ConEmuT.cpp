@@ -91,13 +91,13 @@ int RequestTermConnector()
 	hConEmuHk = GetModuleHandleA(sModule);
 	if (hConEmuHk == NULL)
 	{
-		fprintf(stderr, "\r\n\033[31;40m{PID:%u} %s is not found, exiting\033[m\r\n", getpid(), sModule);
+		write_verbose("\r\n\033[31;40m{PID:%u} %s is not found, exiting\033[m\r\n", getpid(), sModule);
 		return -1;
 	}
 	fnRequestTermConnector = (RequestTermConnector_t)GetProcAddress(hConEmuHk, "RequestTermConnector");
 	if (fnRequestTermConnector == NULL)
 	{
-		fprintf(stderr, "\r\n\033[31;40m{PID:%u} RequestTermConnector function is not found, exiting\033[m\r\n", getpid());
+		write_verbose("\r\n\033[31;40m{PID:%u} RequestTermConnector function is not found, exiting\033[m\r\n", getpid());
 		return -1;
 	}
 
@@ -112,13 +112,13 @@ int RequestTermConnector()
 
 	if (iRc != 0)
 	{
-		fprintf(stderr, "\r\n\033[31;40m{PID:%u} RequestTermConnector failed (%i). %s\033[m\r\n", getpid(), iRc, Connector.pszError ? Connector.pszError : "");
+		write_verbose("\r\n\033[31;40m{PID:%u} RequestTermConnector failed (%i). %s\033[m\r\n", getpid(), iRc, Connector.pszError ? Connector.pszError : "");
 		return -1;
 	}
 
 	if (!Connector.ReadInput || !Connector.WriteText)
 	{
-		fprintf(stderr, "\r\n\033[31;40m{PID:%u} RequestTermConnector returned NULL. %s\033[m\r\n", getpid(), Connector.pszError ? Connector.pszError : "");
+		write_verbose("\r\n\033[31;40m{PID:%u} RequestTermConnector returned NULL. %s\033[m\r\n", getpid(), Connector.pszError ? Connector.pszError : "");
 		return -1;
 	}
 
@@ -158,7 +158,7 @@ static void debug_log_format(const char* format,...)
 
 
 static int pty_fd = -1;
-static pid_t pid;
+static pid_t pid = -1;
 static HANDLE input_thread = NULL;
 static DWORD input_tid = 0;
 static void stop_threads();
@@ -227,7 +227,7 @@ static void sigexit(int sig)
 	kill(getpid(), sig);
 }
 
-static bool write_console(const char *buf, int len)
+static bool write_console(const char *buf, int len, WriteProcessedStream strm = wps_Output)
 {
 	if (len == -1)
 		len = strlen(buf);
@@ -238,9 +238,23 @@ static bool write_console(const char *buf, int len)
 	{
 		DWORD written = 0; BOOL bRc;
 		if (Connector.WriteText)
+		{
+			// Server side, initialized
 			bRc = Connector.WriteText(buf, len, &written, wps_Output);
+		}
+		else if (pid)
+		{
+			// Server side, before initialization
+			// We need to call API directly, because fwrite/printf/...
+			// may break colors, if they were written in wrong moment
+			bRc = WriteConsoleA(GetStdHandle((strm == wps_Output) ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE), buf, len, &written, NULL);
+		}
 		else
-			bRc = WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), buf, len, &written, NULL);
+		{
+			// Child (client) side
+			written = fwrite(buf, 1, len, (strm == wps_Output) ? stdout : stderr);
+			bRc = (written != 0);
+		}
 
 		if (!bRc)
 			return false;
@@ -265,7 +279,7 @@ static void write_verbose(const char *buf, ...)
 		ilen = vsnprintf(szBuf, sizeof(szBuf) - 1, buf, args);
 		va_end(args);
 	}
-	write_console((ilen > 0) ? szBuf : buf, -1);
+	write_console((ilen > 0) ? szBuf : buf, -1, wps_Error);
 }
 
 static void child_resize(struct winsize *winp)
@@ -477,33 +491,19 @@ static void print_environ(bool bChild)
 
 	if (!pp)
 	{
-		if (bChild)
-			fprintf(stdout, "\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\n", getpid());
-		else
-			write_verbose("\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\n", getpid());
+		write_verbose("\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\n", getpid());
 		return;
 	}
 
-	if (bChild)
-		fprintf(stdout, "\033[31;40m{PID:%u} printing `environ` lines\033[m\n", getpid());
-	else
-		write_verbose("\033[31;40m{PID:%u} printing `environ` lines\033[m\n", getpid());
+	write_verbose("\033[31;40m{PID:%u} printing `environ` lines\033[m\n", getpid());
 
 	while (*pp)
 	{
-		if (bChild)
-			fprintf(stdout, "%s\n", *(pp++));
-		else
-		{
-			write_console(*(pp++), -1);
-			write_console("\n", 1);
-		}
+		write_console(*(pp++), -1);
+		write_console("\n", 1);
 	}
 
-	if (bChild)
-		fprintf(stdout, "\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
-	else
-		write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
+	write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
 }
 
 int print_isatty(bool bChild)
@@ -519,17 +519,11 @@ int print_isatty(bool bChild)
 		errNo = errno;
 		if (iTty == 1)
 		{
-			if (bChild)
-				fprintf(stdout, "\033[32;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, ttyName?ttyName:"<NULL>");
-			else
-				write_verbose("\033[32;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[32;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, ttyName?ttyName:"<NULL>");
 		}
 		else
 		{
-			if (bChild)
-				fprintf(stdout, "\033[31;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
-			else
-				write_verbose("\033[31;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[31;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
 			isTty = false;
 		}
 	}
@@ -637,7 +631,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			fprintf(stderr, "\033[31;40m\033[K{PID:%u} Unknown switch: %s\033[m\r\n", getpid(), cur_argv[0]);
+			write_verbose("\033[31;40m\033[K{PID:%u} Unknown switch: %s\033[m\r\n", getpid(), cur_argv[0]);
 			exit(255);
 		}
 
@@ -700,7 +694,7 @@ int main(int argc, char** argv)
 	if (pid < 0)
 	{
 		// If we get here, exec failed.
-		fprintf(stderr, "\033[30;41m\033[K{PID:%u} forkpty failed: %s\033[m\r\n", getpid(), strerror(errno));
+		write_verbose("\033[30;41m\033[K{PID:%u} forkpty failed: %s\033[m\r\n", getpid(), strerror(errno));
 		exit(255);
 	}
 	// Child process (going to start shell)
@@ -737,7 +731,7 @@ int main(int argc, char** argv)
 		{
 			if (chdir(work_dir) == -1)
 			{
-				fprintf(stderr, "\033[30;41m\033[K{PID:%u} chdir `%s` failed: %s\033[m\r\n", getpid(), work_dir, strerror(errno));
+				write_verbose("\033[30;41m\033[K{PID:%u} chdir `%s` failed: %s\033[m\r\n", getpid(), work_dir, strerror(errno));
 			}
 			else
 			{
@@ -753,7 +747,7 @@ int main(int argc, char** argv)
 		if (verbose)
 		{
 			char* cwd = work_dir ? NULL : getcwd(NULL, 0);
-			fprintf(stdout, "\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : cwd ? cwd : "<%cd%>");
+			write_verbose("\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : cwd ? cwd : "<%cd%>");
 			free(cwd);
 		}
 
@@ -767,7 +761,7 @@ int main(int argc, char** argv)
 		execvp(child_argv[0], child_argv);
 
 		// If we get here, exec failed.
-		fprintf(stderr, "\033[30;41m\033[K{PID:%u} Failed to run %s: %s\033[m\r\n", getpid(), child_argv[0], strerror(errno));
+		write_verbose("\033[30;41m\033[K{PID:%u} Failed to run %s: %s\033[m\r\n", getpid(), child_argv[0], strerror(errno));
 
 		exit(255);
 	}
