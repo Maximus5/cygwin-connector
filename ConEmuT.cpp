@@ -454,6 +454,7 @@ int print_isatty(bool bChild)
 
 int main(int argc, char** argv)
 {
+	int iMainRc = 254;
 	struct termios attr;
 	const char* curTerm = NULL;
 	// Another options are: xterm, xterm-256color, cygwin, msys, etc.
@@ -736,7 +737,7 @@ int main(int argc, char** argv)
 				print_environ(false);
 			}
 		}
-		run();
+		iMainRc = run();
 	}
 
 	if (conInMode)
@@ -756,5 +757,5 @@ int main(int argc, char** argv)
 
 	if (verbose)
 		write_verbose("\r\n\033[31;40m{PID:%u} normal exit from main\033[m\r\n", getpid());
-	return 0;
+	return iMainRc;
 }
