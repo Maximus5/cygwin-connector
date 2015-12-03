@@ -4,6 +4,8 @@ rem Build parameters
 set sign_code=YES
 set debug_log=NO
 
+set NO_DEBUG=-s
+
 rem This defines paths to cygwin/msys toolchains
 call "%~dp0set_vars.cmd"
 
