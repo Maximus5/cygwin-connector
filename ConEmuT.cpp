@@ -76,7 +76,7 @@ static RequestTermConnectorParm Connector = {};
 typedef int (WINAPI* RequestTermConnector_t)(/*[IN/OUT]*/RequestTermConnectorParm* Parm);
 static RequestTermConnector_t fnRequestTermConnector = NULL;
 
-int RequestTermConnector()
+static int RequestTermConnector()
 {
 	int iRc;
 	HMODULE hConEmuHk;
@@ -125,7 +125,7 @@ int RequestTermConnector()
 	return 0;
 }
 
-void StopTermConnector()
+static void StopTermConnector()
 {
 	if (fnRequestTermConnector)
 	{
@@ -164,7 +164,7 @@ static DWORD input_tid = 0;
 static void stop_threads();
 static bool termination = false;
 
-BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
+static BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
 	// We do not expect to receive CTRL_C_EVENT/CTRL_BREAK_EVENT because of ProtectCtrlBreakTrap
 
@@ -447,7 +447,7 @@ static int run()
 }
 
 // switch `--keys` useful to check keyboard translations
-int test_read_keys()
+static int test_read_keys()
 {
 	struct termios old = {0}, raw = {};
 
@@ -506,7 +506,7 @@ static void print_environ(bool bChild)
 	write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
 }
 
-int print_isatty(bool bChild)
+static int print_isatty(bool bChild)
 {
 	bool isTty = true;
 	int iTty, errNo;
