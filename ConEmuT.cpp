@@ -383,6 +383,33 @@ static void stop_threads()
 	}
 }
 
+static int process_pty(int& pty, char* buf, const int bufCount, const int preferredCount)
+{
+	debug_log_format("%u:PID=%u:TID=%u: calling read(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pty);
+	int len = read(pty, buf, bufCount);
+
+	if (len > 0)
+	{
+		while ((len+4) < preferredCount)
+		{
+			int addLen = read(pty, buf+len, bufCount-len);
+			if (addLen <= 0)
+				break;
+			len += addLen;
+		}
+		buf[len] = 0;
+		write_console(buf, len, (pty == pty_err) ? wps_Error : wps_Output);
+	}
+	else
+	{
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} read(%i) failed (%i): %s\033[m\r\n", getpid(), pty, errno, strerror(errno));
+		pty = -1;
+	}
+
+	return len;
+}
+
 static int run()
 {
 	fd_set fds;
@@ -430,27 +457,8 @@ static int run()
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
-			{
-				debug_log_format("%u:PID=%u:TID=%u: calling read(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pty_fd);
-				int len = read(pty_fd, buf, bufCount);
+				process_pty(pty_fd, buf, bufCount, preferredCount);
 
-				if (len > 0)
-				{
-					while ((len+4) < preferredCount)
-					{
-						int addLen = read(pty_fd, buf+len, bufCount-len);
-						if (addLen <= 0)
-							break;
-						len += addLen;
-					}
-					buf[len] = 0;
-					write_console(buf, len);
-				}
-				else
-				{
-					pty_fd = -1;
-				}
-			}
 		}
 		else
 		{
