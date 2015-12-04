@@ -227,6 +227,20 @@ static void sigexit(int sig)
 	kill(getpid(), sig);
 }
 
+static bool gb_sigusr1 = false;
+static void sigusr1(int sig)
+{
+	if (sig == SIGUSR1)
+	{
+		if (verbose)
+			write_verbose("\033[%u;40m{PID:%u} SIGUSR1 received\033[m\r\n", pid?31:33, getpid());
+
+		gb_sigusr1 = true;
+
+		signal(SIGUSR1, SIG_DFL);
+	}
+}
+
 static bool write_console(const char *buf, int len, WriteProcessedStream strm = wps_Output)
 {
 	if (len == -1)
@@ -646,6 +660,9 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, const struct winsize *winp
 			return -1;
 	}
 
+	signal(SIGUSR1, sigusr1);
+	gb_sigusr1 = false;
+
 	if (verbose)
 	{
 		write_verbose("\033[31;40m\033[K{PID:%u} calling fork (pgid=%i)\033[m\r\n", getpid(), getpgrp());
@@ -675,9 +692,24 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, const struct winsize *winp
 		slave_std_out = slave_std;
 		slave_std_err = (slave_err >= 0) ? slave_err : slave_std;
 
-		// TODO: sleep
+		if (verbose)
+		{
+			// Actually, terminal will not print anything until we don't return SIGUSR1 back
+			write_verbose("\033[33;40m\033[K{PID:%u} child process wating for SIGUSR1 (pgid=%i)\033[m\r\n", getpid(), getpgrp());
+		}
+
+		//TODO: correct wait?
+		while (!gb_sigusr1 && (wait_steps++ < 100000))
+		{
+			usleep(100);
+		}
 
 		// TODO: tty_ioctl(TIOCSPGRP?)
+
+		if (verbose)
+		{
+			write_verbose("\033[33;40m\033[K{PID:%u} child process SIGUSR1 has received after %i tries\033[m\r\n", getpid(), wait_steps);
+		}
 
 		// Close master descriptors
 		close(master_std);
@@ -997,7 +1029,11 @@ int main(int argc, char** argv)
 			print_environ(true);
 		}
 
-		// sleep(2);
+		// Inform parent "we are ready to shell"
+		if (verbose)
+			write_verbose("\033[33;40m{PID:%u} raising SIGUSR1 in pid=%i\033[m\r\n", getpid(), getppid());
+		kill(getppid(), SIGUSR1);
+		signal(SIGUSR1, SIG_DFL);
 
 		if (verbose)
 		{
@@ -1061,6 +1097,12 @@ int main(int argc, char** argv)
 				print_environ(false);
 			}
 		}
+
+		// Thaw children
+		if (verbose)
+			write_verbose("\033[31;40m{PID:%u} raising SIGUSR1 in pid=%i\033[m\r\n", getpid(), pid);
+		kill(pid, SIGUSR1);
+
 		iMainRc = run();
 	}
 
