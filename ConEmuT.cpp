@@ -319,10 +319,8 @@ static DWORD WINAPI read_input_thread( void * )
 			{
 			case WINDOW_BUFFER_SIZE_EVENT:
 				{
-					#if defined(_USE_DEBUG_LOG_INPUT)
-					debug_log_format("read_input_thread: WindowBufferSize={%i,%i}\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
-					#endif
 					winsize winp;
+					debug_log_format("read_input_thread: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
 					if (query_console_size(&winp))
 						child_resize(&winp);
 				}
