@@ -31,7 +31,6 @@ static void write_verbose(const char *buf, ...);
 static void print_version();
 
 #include "version.h"
-#include "forkpty.h"
 
 
 enum RequestTermConnectorMode
@@ -157,7 +156,8 @@ static void debug_log_format(const char* format,...)
 
 
 
-static int pty_fd = -1;
+static int pty_fd = -1, pty_err = -1;
+static int slave_std_err = -1, slave_std_out = -1;
 static pid_t pid = -1;
 static HANDLE input_thread = NULL;
 static DWORD input_tid = 0;
@@ -252,8 +252,10 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 		else
 		{
 			// Child (client) side
-			written = fwrite(buf, 1, len, (strm == wps_Output) ? stdout : stderr);
-			bRc = (written != 0);
+			ssize_t term_written;
+			term_written = write((strm == wps_Output) ? slave_std_out : slave_std_err, buf, len);
+			bRc = (term_written > 0);
+			written = term_written;
 		}
 
 		if (!bRc)
@@ -341,6 +343,8 @@ static DWORD WINAPI read_input_thread( void * )
 					{
 						if (pty_fd >= 0)
 							resize_pty(pty_fd, &winp);
+						if (pty_err >= 0)
+							resize_pty(pty_err, &winp);
 					}
 				}
 				break;
@@ -431,6 +435,8 @@ static int run()
 		if (pty_fd >= 0)
 		{
 			FD_SET(pty_fd, &fds);
+			if (pty_err >= 0)
+				FD_SET(pty_err, &fds);
 		}
 		else if (pid > 0)
 		{
@@ -453,14 +459,16 @@ static int run()
 			debug_log_format("%u:PID=%u:TID=%u: waitpid(%i) done\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
 		}
 
-		const int fdsmax = pty_fd + 1;
-		debug_log_format("%u:PID=%u:TID=%u: calling select\n", GetTickCount(), getpid(), GetCurrentThreadId());
+		const int fdsmax = _max(pty_fd,pty_err) + 1;
+		debug_log_format("%u:PID=%u:TID=%u: calling select on (%i,%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pty_fd, pty_err);
 		timeout.tv_usec = 100000;
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
 				process_pty(pty_fd, buf, bufCount, preferredCount);
 
+			if (pty_err >= 0 && FD_ISSET(pty_err, &fds))
+				process_pty(pty_err, buf, bufCount, preferredCount);
 		}
 		else
 		{
@@ -556,6 +564,217 @@ static int print_isatty(bool bChild)
 	}
 
 	return isTty ? 0 : 1;
+}
+
+
+static int ce_createpty(const char* adescr, int *pmaster, int *pslave, const struct winsize *winp)
+{
+	char* ptsName;
+
+	if (verbose)
+	{
+		write_verbose("\033[31;40m{PID:%u} creating %s `/dev/ptmx`\033[m\r\n", getpid(), adescr);
+	}
+
+	if ((*pmaster = open ("/dev/ptmx", O_RDWR | O_NOCTTY)) == -1)
+	{
+		write_verbose("\033[30;41m\033[K{PID:%u} open(`/dev/ptmx`) failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
+		return -1;
+	}
+
+	if (verbose)
+	{
+		write_verbose("\033[31;40m{PID:%u} %s handle is (%i)\033[m\r\n", getpid(), adescr, *pmaster);
+	}
+
+	if (grantpt(*pmaster) == -1)
+	{
+		write_verbose("\033[30;41m\033[K{PID:%u} grantpt(%i) failed (%i): %s\033[m\r\n", getpid(), *pmaster, errno, strerror(errno));
+		return -1;
+	}
+	if (unlockpt(*pmaster) == -1)
+	{
+		write_verbose("\033[30;41m\033[K{PID:%u} unlockpt(%i) failed (%i): %s\033[m\r\n", getpid(), *pmaster, errno, strerror(errno));
+		return -1;
+	}
+
+	ptsName = ptsname(*pmaster);
+	if (ptsName == NULL)
+	{
+		write_verbose("\033[30;41m\033[K{PID:%u} ptsname(%i) failed (%i): %s\033[m\r\n", getpid(), *pmaster, errno, strerror(errno));
+		return -1;
+	}
+	if (verbose)
+	{
+		write_verbose("\033[31;40m{PID:%u} opening slave `%s`\033[m\r\n", getpid(), ptsName);
+	}
+
+	if ((*pslave = open (ptsName, O_RDWR | O_NOCTTY)) == -1)
+	{
+		write_verbose("\033[30;41m\033[K{PID:%u} open(`%s`) failed (%i): %s\033[m\r\n", getpid(), ptsName, errno, strerror(errno));
+		close(*pmaster);
+		return -1;
+	}
+
+	if (verbose)
+	{
+		write_verbose("\033[31;40m{PID:%u} slave handle is (%i)\033[m\r\n", getpid(), *pslave);
+	}
+
+	if (winp)
+	{
+		// Allow to continue even on errors
+		resize_pty(*pmaster, winp);
+	}
+
+	return 0;
+}
+
+static int ce_forkpty(int *pmaster, int *pmaster_err, const struct winsize *winp)
+{
+	int master_std = -1, slave_std = -1, master_err = -1, slave_err = -1;
+	sigset_t sset;
+
+	if (ce_createpty("master", &master_std, &slave_std, winp) < 0)
+		return -1;
+
+	// Allow duplex mode? (it allow to distinct stderr and stdout)
+	if (pmaster_err != NULL)
+	{
+		if (ce_createpty("stderr master", &master_err, &slave_err, winp) < 0)
+			return -1;
+	}
+
+	if (verbose)
+	{
+		write_verbose("\033[31;40m\033[K{PID:%u} calling fork (pgid=%i)\033[m\r\n", getpid(), getpgrp());
+	}
+
+	errno = ENOENT;
+
+	pid = fork();
+
+	// Fork failed
+	if (pid == -1)
+	{
+		write_verbose("\033[30;41m\033[K{PID:%u} fork failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
+		return -1;
+	}
+
+	// Child process here
+	if (pid == 0)
+	{
+		char  *stdName, *errName;
+		int   newStd, newErr;
+		int   wait_steps = 0;
+
+		// To be sure we will not call these functions in child
+		memset(&Connector, 0, sizeof(Connector));
+		fnRequestTermConnector = NULL;
+		slave_std_out = slave_std;
+		slave_std_err = (slave_err >= 0) ? slave_err : slave_std;
+
+		// TODO: sleep
+
+		// TODO: tty_ioctl(TIOCSPGRP?)
+
+		// Close master descriptors
+		close(master_std);
+		if (master_err >= 0)
+			close(master_err);
+
+		if (verbose)
+		{
+			write_verbose("\033[33;40m{PID:%u} ce_forkpty child: std=%i, err=%i\033[m\r\n", getpid(), slave_std, slave_err);
+		}
+
+		if (setsid() == -1)
+		{
+			write_verbose("\033[30;41m\033[K{PID:%u} setsid() failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
+			return -1;
+		}
+
+		if (slave_err < 0)
+			slave_err = slave_std;
+
+		stdName = ttyname(slave_std);
+		errName = (slave_err == slave_std) ? stdName : ttyname(slave_err);
+
+		if (verbose)
+		{
+			write_verbose("\033[33;40m{PID:%u} ttyname(%i)=`%s`\033[m\r\n", getpid(), slave_std, stdName ? stdName : "<null>");
+			if (slave_err != slave_std)
+				write_verbose("\033[33;40m{PID:%u} ttyname(%i)=`%s`\033[m\r\n", getpid(), slave_std, errName ? errName : "<null>");
+		}
+
+		// Set descriptors to standard IN/OUT/ERR ids
+		if (slave_std != STDIN_FILENO)
+		{
+			if (verbose)
+				write_verbose("\033[33;40m{PID:%u} changing stdin: %i -> %i\033[m\r\n", getpid(), slave_std, STDIN_FILENO);
+			close(STDIN_FILENO);
+			dup2(slave_std, STDIN_FILENO);
+		}
+		else if (verbose)
+		{
+			write_verbose("\033[33;40m{PID:%u} stdin is already %i\033[m\r\n", getpid(), slave_std);
+		}
+
+		if (slave_std != STDOUT_FILENO)
+		{
+			if (verbose)
+				write_verbose("\033[33;40m{PID:%u} changing stdout: %i -> %i\033[m\r\n", getpid(), slave_std, STDOUT_FILENO);
+			close(STDOUT_FILENO);
+			dup2(slave_std, STDOUT_FILENO);
+		}
+		else if (verbose)
+		{
+			write_verbose("\033[33;40m{PID:%u} stdout is already %i\033[m\r\n", getpid(), slave_std);
+		}
+		slave_std_out = STDOUT_FILENO;
+
+		if (slave_err != STDERR_FILENO)
+		{
+			if (verbose)
+				write_verbose("\033[33;40m{PID:%u} changing stderr: %i -> %i\033[m\r\n", getpid(), slave_err, STDERR_FILENO);
+			close(STDERR_FILENO);
+			dup2(slave_err, STDERR_FILENO);
+		}
+		else if (verbose)
+		{
+			write_verbose("\033[33;40m{PID:%u} stderr is already %i\033[m\r\n", getpid(), slave_err);
+		}
+		slave_std_err = STDERR_FILENO;
+
+		// Close unused descriptors
+		if (slave_std > STDERR_FILENO)
+			close(slave_std);
+		if ((slave_err != slave_std) && (slave_err > STDERR_FILENO))
+			close(slave_err);
+
+		// Child "login into terminal" succeeded
+		return 0;
+	} // if (pid == 0)
+
+
+	// Parent process here
+
+	if (verbose)
+	{
+		write_verbose("\033[31;40m\033[K{PID:%u} child pid=%i pgid=%i was created (ourpgid=%i)\033[m\r\n", getpid(), pid, getpgid(pid), getpgrp());
+	}
+
+	if (slave_std >= 0)
+		close(slave_std);
+	if (slave_err >= 0)
+		close(slave_err);
+	if (pmaster)
+		*pmaster = master_std;
+	if (pmaster_err)
+		*pmaster_err = master_err;
+
+	// Fork succeeded
+	return pid;
 }
 
 int main(int argc, char** argv)
@@ -721,7 +940,7 @@ int main(int argc, char** argv)
 	}
 
 	// Create the terminal instance
-	pid = ce_forkpty(&pty_fd, &winp);
+	pid = ce_forkpty(&pty_fd, NULL/*&pty_err*/, &winp);
 	// Error in fork?
 	if (pid < 0)
 	{
@@ -732,10 +951,6 @@ int main(int argc, char** argv)
 	// Child process (going to start shell)
 	else if (!pid)
 	{
-		// To be sure we will not call these functions in child
-		memset(&Connector, 0, sizeof(Connector));
-		fnRequestTermConnector = NULL;
-
 		// Reset signals
 		signal(SIGHUP, SIG_DFL);
 		signal(SIGINT, SIG_DFL);
