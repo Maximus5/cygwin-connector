@@ -256,7 +256,7 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 			// Server side, initialized
 			bRc = Connector.WriteText(buf, len, &written, wps_Output);
 		}
-		else if (pid > 0)
+		else if (pid != 0) // Not-a-child or before-fork
 		{
 			// Server side, before initialization
 			// We need to call API directly, because fwrite/printf/...
