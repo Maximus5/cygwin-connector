@@ -776,18 +776,22 @@ int main(int argc, char** argv)
 			print_isatty(true);
 		}
 
-		if (verbose)
+		if (prn_env)
 		{
-			char* cwd = work_dir ? NULL : getcwd(NULL, 0);
-			write_verbose("\033[31;40m{PID:%u} Starting shell: `%s` in `%s`\033[m\r\n", getpid(), child_argv[0], work_dir ? work_dir : cwd ? cwd : "<%cd%>");
-			free(cwd);
+			print_environ(true);
 		}
 
 		// sleep(2);
 
-		if (prn_env)
+		if (verbose)
 		{
-			print_environ(true);
+			char* cwd = work_dir ? NULL : getcwd(NULL, 0);
+			write_verbose("\033[33;40m{PID:%u} Starting shell: `%s`", getpid(), child_argv[0]);
+			for (int c = 1; child_argv[c]; c++)
+				write_verbose(" `%s`", child_argv[c]);
+			write_verbose("\033[m\r\n");
+			write_verbose("\033[33;40m{PID:%u}    working dir: `%s`\033[m\r\n", getpid(), work_dir ? work_dir : cwd ? cwd : "<%cd%>");
+			free(cwd);
 		}
 
 		execvp(child_argv[0], child_argv);
