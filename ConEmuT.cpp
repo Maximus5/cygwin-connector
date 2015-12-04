@@ -413,7 +413,7 @@ static int run()
 			{
 				if (verbose)
 				{
-					write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated\033[m\r\n", getpid(), pid);
+					write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated, status=%i\033[m\r\n", getpid(), pid, status);
 				}
 
 				pid = 0;
@@ -536,11 +536,11 @@ static int print_isatty(bool bChild)
 		errNo = errno;
 		if (iTty == 1)
 		{
-			write_verbose("\033[32;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, ttyName?ttyName:"<NULL>");
 		}
 		else
 		{
-			write_verbose("\033[31;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
 			isTty = false;
 		}
 	}
@@ -702,7 +702,7 @@ int main(int argc, char** argv)
 	if (verbose)
 	{
 		const char* curHome = getenv("HOME");
-		write_verbose("\r\n\033[31;40m{PID:%u} current $HOME is `%s`\033[m\r\n", getpid(), curHome ? curHome : "<null>");
+		write_verbose("\033[31;40m{PID:%u} current $HOME is `%s`\033[m\r\n", getpid(), curHome ? curHome : "<null>");
 	}
 
 	if (verbose)
