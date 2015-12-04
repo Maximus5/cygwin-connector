@@ -450,7 +450,8 @@ static int run()
 				}
 
 				pid = 0;
-				break;
+				if (pty_fd < 0)
+					break;
 			}
 			else // Pty gone, but process still there: keep checking
 			{
