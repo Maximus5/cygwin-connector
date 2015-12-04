@@ -649,14 +649,14 @@ int main(int argc, char** argv)
 			printf("  -h, --help       this help\n");
 			printf("  -d, --dir <dir>  chdir to `dir` before starting shell\n");
 			printf("                   forces `set CHERE_INVOKING=1`\n");
-			printf("  -t <new-term>    forced set `TERM` variable to `new-term`\n");
+			printf("  -t <new-term>    forces `set TERM=new-term`\n");
+			printf("      --debug      wait for debugger for 60 seconds\n");
+			printf("      --environ    print environment on startup\n");
+			printf("      --isatty     do isatty checks and print pts names\n");
 			printf("      --keys       read conin and print bare input\n");
 			printf("      --shlvl      forces `set SHLVL=1` to avoid terminal reset on exit\n");
 			printf("      --verbose    additional information during startup\n");
 			printf("      --version    print version of this tool\n");
-			printf("      --debug      wait for debugger for 60 seconds\n");
-			printf("      --environ    print environment on startup\n");
-			printf("      --isatty     fo isatty checks and print pts names\n");
 			exit(1);
 		}
 		else
