@@ -447,7 +447,9 @@ static int run()
 				break;
 			}
 			else // Pty gone, but process still there: keep checking
+			{
 				timeout_p = &timeout;
+			}
 			debug_log_format("%u:PID=%u:TID=%u: waitpid(%i) done\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
 		}
 
