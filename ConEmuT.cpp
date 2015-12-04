@@ -282,14 +282,30 @@ static void write_verbose(const char *buf, ...)
 	write_console((ilen > 0) ? szBuf : buf, -1, wps_Error);
 }
 
-static void child_resize(struct winsize *winp)
+static int resize_pty(int pty, const struct winsize *winp)
 {
-	if (pty_fd >= 0)
-		ioctl(pty_fd, TIOCSWINSZ, winp);
+	int iRc = -99;
+
+	if (pty != -1)
+	{
+		// SIGWINCH signal is sent to the foreground process group
+		iRc = ioctl(pty, TIOCSWINSZ, winp);
+
+		if (verbose)
+		{
+			if (iRc == -1)
+				write_verbose("\033[31;40m{PID:%u} ioctl(%i,TIOCSWINSZ,(%i,%i)) failed (%i): %s\033[m\r\n", getpid(), pty, winp->ws_col, winp->ws_row, errno, strerror(errno));
+			else
+				write_verbose("\033[31;40m{PID:%u} ioctl(%i,TIOCSWINSZ,(%i,%i)) succeeded (%i)\033[m\r\n", getpid(), pty, winp->ws_col, winp->ws_row, iRc);
+		}
+	}
+
+	return iRc;
 }
 
 static bool query_console_size(struct winsize* winp)
 {
+	memset(winp, 0, sizeof(winp));
 	CONSOLE_SCREEN_BUFFER_INFO csbi = {};
 	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
 	{
@@ -322,7 +338,10 @@ static DWORD WINAPI read_input_thread( void * )
 					winsize winp;
 					debug_log_format("read_input_thread: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
 					if (query_console_size(&winp))
-						child_resize(&winp);
+					{
+						if (pty_fd != -1)
+							resize_pty(pty_fd, &winp);
+					}
 				}
 				break;
 			case KEY_EVENT:
