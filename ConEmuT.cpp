@@ -182,7 +182,7 @@ static BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 	case CTRL_CLOSE_EVENT:
 	case CTRL_LOGOFF_EVENT:
 	case CTRL_SHUTDOWN_EVENT:
-		if (pid)
+		if (pid > 0)
 			kill(-pid, SIGHUP);
 		break;
 	default:
@@ -215,12 +215,12 @@ static void sigexit(int sig)
 		if (verbose)
 			write_verbose("\r\n\033[31;40m{PID:%u} Passing ^C to client\033[m\r\n", getpid());
 		write(pty_fd, "\3", 1);
-		//if (pid)
+		//if (pid > 0)
 		//	kill(pid, sig); // or kill(-group, sig)
 		return;
 	}
 
-	if (pid)
+	if (pid > 0)
 		kill(-pid, SIGHUP);
 	stop_threads();
 	signal(sig, SIG_DFL);
@@ -242,7 +242,7 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 			// Server side, initialized
 			bRc = Connector.WriteText(buf, len, &written, wps_Output);
 		}
-		else if (pid)
+		else if (pid > 0)
 		{
 			// Server side, before initialization
 			// We need to call API directly, because fwrite/printf/...
@@ -386,7 +386,7 @@ static int run()
 		{
 			FD_SET(pty_fd, &fds);
 		}
-		else if (pid)
+		else if (pid > 0)
 		{
 			int status;
 			debug_log_format("%u:PID=%u:TID=%u: calling waitpid(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
