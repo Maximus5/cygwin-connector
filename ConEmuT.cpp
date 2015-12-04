@@ -286,7 +286,7 @@ static int resize_pty(int pty, const struct winsize *winp)
 {
 	int iRc = -99;
 
-	if (pty != -1)
+	if (pty >= 0)
 	{
 		// SIGWINCH signal is sent to the foreground process group
 		iRc = ioctl(pty, TIOCSWINSZ, winp);
@@ -339,7 +339,7 @@ static DWORD WINAPI read_input_thread( void * )
 					debug_log_format("read_input_thread: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
 					if (query_console_size(&winp))
 					{
-						if (pty_fd != -1)
+						if (pty_fd >= 0)
 							resize_pty(pty_fd, &winp);
 					}
 				}
