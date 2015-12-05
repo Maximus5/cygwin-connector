@@ -1,10 +1,18 @@
-﻿## Cygwin/MSYS connector
+## Cygwin/MSYS connector
 This helper tool for [ConEmu-Maximus5](https://conemu.github.io)
 provides POSIX environment for:
 
 * [Cygwin](https://www.cygwin.com/): `conemu-cyg-32.exe` and `conemu-cyg-64.exe`;
 * [MSYS 1.0](http://www.mingw.org/wiki/msys): `conemu-msys-32.exe`;
 * [MSYS 2.0](https://msys2.github.io/): `conemu-msys2-32.exe` and `conemu-msys2-64.exe`.
+
+
+## How to use connector
+
+How to install and use connector read in
+[ConEmu docs](CygwinMsysConnector.html).
+
+Please note, status of this plugin is ‘Experimental’.
 
 
 ## WARNING
