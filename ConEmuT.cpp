@@ -326,7 +326,7 @@ static void write_verbose(const char *buf, ...)
 	write_console((ilen > 0) ? szBuf : buf, -1, wps_Error);
 }
 
-static int resize_pty(int pty, const struct winsize *winp)
+static int resize_pty(int pty, struct winsize *winp)
 {
 	int iRc = -99;
 
@@ -610,7 +610,7 @@ static int print_isatty(bool bChild)
 }
 
 
-static int ce_createpty(const char* adescr, int *pmaster, int *pslave, const struct winsize *winp)
+static int ce_createpty(const char* adescr, int *pmaster, int *pslave, struct winsize *winp)
 {
 	char* ptsName;
 
@@ -673,7 +673,7 @@ static int ce_createpty(const char* adescr, int *pmaster, int *pslave, const str
 	return 0;
 }
 
-static int ce_forkpty(int *pmaster, int *pmaster_err, const struct winsize *winp)
+static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 {
 	int master_std = -1, slave_std = -1, master_err = -1, slave_err = -1;
 	sigset_t sset;
