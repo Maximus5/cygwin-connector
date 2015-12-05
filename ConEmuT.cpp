@@ -32,16 +32,17 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <algorithm>
 #include <stdarg.h>
 #include <errno.h>
 #include <process.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/fcntl.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/termios.h>
 
 #include <w32api/wtypes.h>
 #include <w32api/wincon.h>
