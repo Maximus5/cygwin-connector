@@ -694,22 +694,17 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, const struct winsize *winp
 
 		if (verbose)
 		{
-			// Actually, terminal will not print anything until we don't return SIGUSR1 back
+			// Actually, terminal will not print child output until it get into run() function
 			write_verbose("\033[33;40m\033[K{PID:%u} child process wating for SIGUSR1 (pgid=%i)\033[m\r\n", getpid(), getpgrp());
 		}
 
-		//TODO: correct wait?
-		while (!gb_sigusr1 && (wait_steps++ < 100000))
-		{
+		// Wait a little until parent process let us go
+		while (!gb_sigusr1 && (++wait_steps < 2000))
 			usleep(100);
-		}
+		if (verbose)
+			write_verbose("\033[33;40m\033[K{PID:%u} child process continues after %i waits for SIGUSR1\033[m\r\n", getpid(), wait_steps);
 
 		// TODO: tty_ioctl(TIOCSPGRP?)
-
-		if (verbose)
-		{
-			write_verbose("\033[33;40m\033[K{PID:%u} child process SIGUSR1 has received after %i tries\033[m\r\n", getpid(), wait_steps);
-		}
 
 		// Close master descriptors
 		close(master_std);
