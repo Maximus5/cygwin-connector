@@ -471,6 +471,47 @@ static int process_pty(int& pty, char* buf, const int bufCount, const int prefer
 	return len;
 }
 
+static int check_child(bool force_print = false)
+{
+	if (pid <= 0)
+		return -1;
+
+	int status = 0, wait_rc;
+
+	debug_log_format("%u:PID=%u:TID=%u: calling waitpid(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
+	wait_rc = waitpid(pid, &status, WNOHANG);
+	debug_log_format("%u:PID=%u:TID=%u: waitpid(%i) done rc=%u status=0x%X\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid, wait_rc, status);
+
+	if (wait_rc == pid)
+	{
+		if (verbose || force_print)
+		{
+			if (WIFEXITED(status))
+				write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated, exitcode=%u", getpid(), pid, WEXITSTATUS(status), strerror(WEXITSTATUS(status)));
+			else if (WIFSIGNALED(status))
+				write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated by signal (%u): %s", getpid(), pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+			else
+				write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated, status=%i\033[m\r\n", getpid(), pid, status);
+		}
+
+		pid = -2;
+	}
+	else if (wait_rc == 0)
+	{
+		// One or more child(ren) exist
+		if (force_print)
+		{
+			write_verbose("\r\n\033[31;40m{PID:%u} one or more children with pid=%i are alive\033[m\r\n", getpid(), pid);
+		}
+	}
+	else if (verbose || force_print)
+	{
+		write_verbose("\r\n\033[31;40m{PID:%u} waitpid(%i) failed (%i): %s", getpid(), pid, errno, strerror(errno));
+	}
+
+	return (pid <= 0) ? -1 : 0;
+}
+
 static int run()
 {
 	fd_set fds;
@@ -497,24 +538,16 @@ static int run()
 		}
 		else if (pid > 0)
 		{
-			int status;
-			debug_log_format("%u:PID=%u:TID=%u: calling waitpid(%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
-			if (waitpid(pid, &status, WNOHANG) == pid)
+			if (check_child() == -1)
 			{
-				if (verbose)
-				{
-					write_verbose("\r\n\033[31;40m{PID:%u} pid=%i was terminated, status=%i\033[m\r\n", getpid(), pid, status);
-				}
-
-				pid = 0;
 				if (pty_fd < 0)
 					break;
 			}
-			else // Pty gone, but process still there: keep checking
+			else
 			{
+				// Pty gone, but process still there: keep checking?
 				timeout_p = &timeout;
 			}
-			debug_log_format("%u:PID=%u:TID=%u: waitpid(%i) done\n", GetTickCount(), getpid(), GetCurrentThreadId(), pid);
 		}
 
 		const int fdsmax = _max(pty_fd,pty_err) + 1;
@@ -533,6 +566,8 @@ static int run()
 			debug_log_format("%u:PID=%u:TID=%u: select failed\n", GetTickCount(), getpid(), GetCurrentThreadId());
 		}
 	}
+
+	check_child(true);
 
 	stop_threads();
 
