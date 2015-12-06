@@ -284,6 +284,20 @@ static void print_shell_args()
 }
 
 
+static void sigfault(int sig)
+{
+	if (sig == SIGSEGV)
+	{
+		write_verbose("\033[%u;40m{PID:%u} Failed to run shell (SIGSEGV)\033[m\r\n", pid?31:33, getpid());
+		if (!verbose)
+			print_shell_args();
+		// if we exit immediately, some versions of cygwin/msys will not be able to print our message
+		sleep(1);
+		exit(EFAULT);
+	}
+}
+
+
 static bool write_console(const char *buf, int len, WriteProcessedStream strm = wps_Output)
 {
 	if (len == -1)
@@ -1123,10 +1137,19 @@ int main(int argc, char** argv)
 			print_shell_args();
 		}
 
+		// At least msys from GoW (1.0.17) raises `segmentation fault`
+		// if it can't find shell executable, for example,
+		// just "conemu-msys-32.exe bash" is not enough (SIGSEGV),
+		// but "conemu-msys-32.exe /usr/bin/bash" succeeds.
+		// And it succeeds if this `bin` exists in %PATH%.
+		signal(SIGSEGV, sigfault);
+
 		execvp(child_argv[0], child_argv);
 
 		// If we get here, exec failed.
 		write_verbose("\033[30;41m\033[K{PID:%u} Failed to run shell (%i): %s\033[m\r\n", getpid(), child_argv[0], errno, strerror(errno));
+		// if we exit immediately, some versions of cygwin/msys will not be able to print our message
+		sleep(1);
 		exit(errno ? errno : 252);
 	}
 	// Parent process
