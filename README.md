@@ -10,7 +10,7 @@ provides POSIX environment for:
 ## How to use connector
 
 How to install and use connector read in
-[ConEmu docs](CygwinMsysConnector.html).
+[ConEmu docs](https://conemu.github.io/en/CygwinMsysConnector.html).
 
 Please note, status of this plugin is ‘Experimental’.
 
@@ -18,7 +18,8 @@ Please note, status of this plugin is ‘Experimental’.
 ## WARNING
 
 * **Do not** run connector from cygwin or msys shell! Different cygwin/msys layers will cause problems!
-* Connector might be started as [ROOT PROCESS](https://conemu.github.io/en/RootProcess.html) or from some native shell (like cmd.exe) already started in ConEmu.
+* Connector might be started as [ROOT PROCESS](https://conemu.github.io/en/RootProcess.html)
+  or from some native shell (like cmd.exe) already started in ConEmu.
 
 
 ## Screenshots
