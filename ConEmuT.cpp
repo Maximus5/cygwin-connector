@@ -269,6 +269,21 @@ static void sigusr1(int sig)
 	}
 }
 
+char * const * child_argv = NULL;
+const char * work_dir = NULL;
+
+static void print_shell_args()
+{
+	char* cwd = work_dir ? NULL : getcwd(NULL, 0);
+	write_verbose("\033[33;40m{PID:%u} shell: `%s`", getpid(), child_argv[0]);
+	for (int c = 1; child_argv[c]; c++)
+		write_verbose(" `%s`", child_argv[c]);
+	write_verbose("\033[m\r\n");
+	write_verbose("\033[33;40m{PID:%u}   dir: `%s`\033[m\r\n", getpid(), work_dir ? work_dir : cwd ? cwd : "<%cd%>");
+	free(cwd);
+}
+
+
 static bool write_console(const char *buf, int len, WriteProcessedStream strm = wps_Output)
 {
 	if (len == -1)
@@ -845,7 +860,6 @@ int main(int argc, char** argv)
 	const char* newTerm = "xterm-256color";
 	bool force_set_term = true;
 	char** cur_argv;
-	const char* work_dir = NULL;
 	bool prn_env = false;
 
 	cur_argv = argv[0] ? argv+1 : argv;
@@ -1031,7 +1045,7 @@ int main(int argc, char** argv)
 
 		// Invoke command
 		char * const def_argv[] = {"/usr/bin/sh", "-l", "-i", NULL};
-		char * const * child_argv = cur_argv[0] ? cur_argv : def_argv;
+		child_argv = cur_argv[0] ? cur_argv : def_argv;
 
 		if (work_dir)
 		{
@@ -1063,13 +1077,7 @@ int main(int argc, char** argv)
 
 		if (verbose)
 		{
-			char* cwd = work_dir ? NULL : getcwd(NULL, 0);
-			write_verbose("\033[33;40m{PID:%u} Starting shell: `%s`", getpid(), child_argv[0]);
-			for (int c = 1; child_argv[c]; c++)
-				write_verbose(" `%s`", child_argv[c]);
-			write_verbose("\033[m\r\n");
-			write_verbose("\033[33;40m{PID:%u}    working dir: `%s`\033[m\r\n", getpid(), work_dir ? work_dir : cwd ? cwd : "<%cd%>");
-			free(cwd);
+			print_shell_args();
 		}
 
 		execvp(child_argv[0], child_argv);
