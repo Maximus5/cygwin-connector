@@ -1009,7 +1009,7 @@ int main(int argc, char** argv)
 	// Request xterm emulation in ConEmu, obtain callback functions
 	if (RequestTermConnector() != 0)
 	{
-		exit(200);
+		exit(254);
 	}
 
 	tcgetattr(0, &attr);
@@ -1062,7 +1062,7 @@ int main(int argc, char** argv)
 	{
 		// If we get here, fork (CreateProcess for child connector process) was failed.
 		write_verbose("\033[30;41m\033[K{PID:%u} forkpty failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
-		exit(255);
+		exit(253);
 	}
 	// Child process (going to start shell)
 	else if (!pid)
@@ -1127,8 +1127,7 @@ int main(int argc, char** argv)
 
 		// If we get here, exec failed.
 		write_verbose("\033[30;41m\033[K{PID:%u} Failed to run shell (%i): %s\033[m\r\n", getpid(), child_argv[0], errno, strerror(errno));
-
-		exit(255);
+		exit(errno ? errno : 252);
 	}
 	// Parent process
 	else
