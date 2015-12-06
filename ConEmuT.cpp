@@ -556,10 +556,18 @@ static int run()
 		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
+			{
 				process_pty(pty_fd, buf, bufCount, preferredCount);
+				if (verbose && (pty_fd < 0))
+					write_verbose("\r\n\033[31;40m{PID:%u} pty_fd set to -1\033[m\r\n", getpid(), pid);
+			}
 
 			if (pty_err >= 0 && FD_ISSET(pty_err, &fds))
+			{
 				process_pty(pty_err, buf, bufCount, preferredCount);
+				if (verbose && (pty_err < 0))
+					write_verbose("\r\n\033[31;40m{PID:%u} pty_err set to -1\033[m\r\n", getpid(), pid);
+			}
 		}
 		else
 		{
@@ -1052,8 +1060,8 @@ int main(int argc, char** argv)
 	// Error in fork?
 	if (pid < 0)
 	{
-		// If we get here, exec failed.
-		write_verbose("\033[30;41m\033[K{PID:%u} forkpty failed: %s\033[m\r\n", getpid(), strerror(errno));
+		// If we get here, fork (CreateProcess for child connector process) was failed.
+		write_verbose("\033[30;41m\033[K{PID:%u} forkpty failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
 		exit(255);
 	}
 	// Child process (going to start shell)
@@ -1118,7 +1126,7 @@ int main(int argc, char** argv)
 		execvp(child_argv[0], child_argv);
 
 		// If we get here, exec failed.
-		write_verbose("\033[30;41m\033[K{PID:%u} Failed to run %s: %s\033[m\r\n", getpid(), child_argv[0], strerror(errno));
+		write_verbose("\033[30;41m\033[K{PID:%u} Failed to run shell (%i): %s\033[m\r\n", getpid(), child_argv[0], errno, strerror(errno));
 
 		exit(255);
 	}
