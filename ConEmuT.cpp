@@ -712,7 +712,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 	{
 		char  *stdName, *errName;
 		int   newStd, newErr;
-		int   wait_steps = 0;
+		DWORD tBegin, tEnd;
 
 		// To be sure we will not call these functions in child
 		memset(&Connector, 0, sizeof(Connector));
@@ -727,10 +727,13 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		}
 
 		// Wait a little until parent process let us go
-		while (!gb_sigusr1 && (++wait_steps < 2000))
-			usleep(100);
+		tBegin = GetTickCount();
+		sleep(5);
+		tEnd = GetTickCount();
 		if (verbose)
-			write_verbose("\033[33;40m\033[K{PID:%u} child process continues after %i waits for SIGUSR1\033[m\r\n", getpid(), wait_steps);
+		{
+			write_verbose("\033[33;40m\033[K{PID:%u} child process continues after %u ms (SIGUSR1=%u)\033[m\r\n", getpid(), (tEnd-tBegin), (gb_sigusr1?1:0));
+		}
 
 		// TODO: tty_ioctl(TIOCSPGRP?)
 
