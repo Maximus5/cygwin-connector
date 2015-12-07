@@ -55,6 +55,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bool verbose = false;
 bool debugger = false;
+static int gnLogFile = -1;
+
 static void write_verbose(const char *buf, ...);
 static void print_version();
 
@@ -162,6 +164,14 @@ static void StopTermConnector()
 	}
 
 	memset(&Connector, 0, sizeof(Connector));
+
+	if (gnLogFile >= 0)
+	{
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} closing log file (%i)\033[m\r\n", getpid(), gnLogFile);
+		close(gnLogFile);
+		gnLogFile = -1;
+	}
 }
 
 #if defined(_USE_DEBUG_LOG)
@@ -313,6 +323,14 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 		if (Connector.WriteText)
 		{
 			// Server side, initialized
+
+			// First, log the string if required
+			if (gnLogFile >= 0)
+			{
+				write(gnLogFile, buf, len);
+			}
+
+			// Dump to console
 			bRc = Connector.WriteText(buf, len, &written, wps_Output);
 		}
 		else if (pid != 0) // Not-a-child or before-fork
@@ -372,6 +390,13 @@ static int resize_pty(int pty, struct winsize *winp)
 				write_verbose("\033[31;40m{PID:%u} ioctl(%i,TIOCSWINSZ,(%i,%i)) failed (%i): %s\033[m\r\n", getpid(), pty, winp->ws_col, winp->ws_row, errno, strerror(errno));
 			else
 				write_verbose("\033[31;40m{PID:%u} ioctl(%i,TIOCSWINSZ,(%i,%i)) succeeded (%i)\033[m\r\n", getpid(), pty, winp->ws_col, winp->ws_row, iRc);
+		}
+
+		if (gnLogFile >= 0)
+		{
+			char szLogSize[80];
+			sprintf(szLogSize, "\x1B]9;11;\"TIOCSWINSZ(%i,%i) %s\"\x07", winp->ws_col, winp->ws_row, (iRc == -1) ? "failed" : "succeeded");
+			write(gnLogFile, szLogSize, strlen(szLogSize));
 		}
 	}
 
@@ -794,6 +819,13 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		slave_std_out = slave_std;
 		slave_std_err = (slave_err >= 0) ? slave_err : slave_std;
 
+		// Don't use logging descriptor in child
+		if (gnLogFile != -1)
+		{
+			close(gnLogFile);
+			gnLogFile = -1;
+		}
+
 		if (verbose)
 		{
 			// Actually, terminal will not print child output until it get into run() function
@@ -910,6 +942,60 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 	return pid;
 }
 
+void create_log_file(const char* pszDir)
+{
+	wchar_t* pszCmdLine;
+
+	// "[dir/]connector-%pid%.log"
+	int iDirLen = pszDir ? strlen(pszDir) : 0;
+	char *pszLog = (char*)malloc(iDirLen+64);
+	if (iDirLen > 0)
+	{
+		strcpy(pszLog, pszDir);
+		// add posix-way trailing slash if absent
+		if (!strchr("\\/", pszDir[iDirLen-1]))
+			pszLog[iDirLen++] = '/';
+	}
+	else
+	{
+		strcpy(pszLog, "./");
+		iDirLen = 2;
+	}
+	sprintf(pszLog+iDirLen, "connector-%u.log", getpid());
+
+	// Let's create log file...
+	// umask(777); -- no need to reset?
+	gnLogFile = open(pszLog, O_WRONLY|O_CREAT|O_TRUNC, 0600);
+	// Succeeded?
+	if (gnLogFile >= 0)
+	{
+		// There is some permission crazyness while creating new files
+		fchmod(gnLogFile, 0600);
+
+		// Write our full command line to first line of log-file
+		if ((pszCmdLine = GetCommandLineW()) != NULL)
+		{
+			int wlen = lstrlenW(pszCmdLine);
+			int len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, 0, 0, 0, 0);
+			if (len > 0)
+			{
+				char* pszUtf8 = new char[len];
+				if (pszUtf8 && ((len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, pszUtf8, len, 0, 0)) > 0))
+				{
+					write(gnLogFile, pszUtf8, len);
+					write(gnLogFile, "\n----------\n", 12);
+				}
+				delete[] pszUtf8;
+			}
+		}
+	}
+
+	if (verbose)
+		write_verbose("\r\n\033[31;40m{PID:%u} fopen(`%s`) = %i\033[m\r\n", getpid(), pszLog, gnLogFile);
+
+	free(pszLog);
+}
+
 int main(int argc, char** argv)
 {
 	int iMainRc = 254;
@@ -964,6 +1050,22 @@ int main(int argc, char** argv)
 		else if (strcmp(cur_argv[0], "--isatty") == 0)
 		{
 			exit(print_isatty(true));
+		}
+		else if ((strcmp(cur_argv[0], "-l") == 0) || (strcmp(cur_argv[0], "--log") == 0))
+		{
+			// User may or may not specify directory for log files
+			char* pszDir = (cur_argv[1] && (cur_argv[1][0] != '-')) ? cur_argv[1] : NULL;
+			if (gnLogFile == -1)
+			{
+				// "[dir/]connector-%pid%.log"
+				create_log_file(pszDir);
+			}
+			else
+			{
+				write_verbose("\r\n\033[31;40m{PID:%u} log file was already opened\033[m\r\n", getpid());
+			}
+			if (pszDir)
+				cur_argv++;
 		}
 		else if (strcmp(cur_argv[0], "-t") == 0)
 		{
