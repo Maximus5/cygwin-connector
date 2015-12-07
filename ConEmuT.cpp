@@ -160,6 +160,8 @@ static void StopTermConnector()
 		Connector.Mode = rtc_Stop;
 		fnRequestTermConnector(&Connector);
 	}
+
+	memset(&Connector, 0, sizeof(Connector));
 }
 
 #if defined(_USE_DEBUG_LOG)
