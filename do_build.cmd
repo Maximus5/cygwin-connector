@@ -4,7 +4,7 @@ rem Build parameters
 set sign_code=YES
 set debug_log=NO
 
-set NO_DEBUG=-s
+set NO_DEBUG=-s -O3
 
 rem This defines paths to cygwin/msys toolchains
 call "%~dp0set_vars.cmd"
@@ -48,6 +48,7 @@ goto :build
 set toolchain=%msys1toolchain%
 set PATH=%msys1toolchain%\bin;%PATH%
 set exe_name=%msys1exe%
+set USE_GCC_STATIC=
 call :bit32
 goto :build
 
@@ -87,7 +88,7 @@ windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 echo Compiling code and linking
-g++ %LOGGING% ConEmuT.cpp -o %exe_name% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
+g++ %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign
@@ -96,6 +97,14 @@ call sign "%exe_name%" > nul
 :skip_sign
 
 endlocal
+
+rem if not defined dumpbin goto skip_imp
+rem if not exist "%dumpbin%" goto skip_imp
+rem if not defined grep goto skip_imp
+rem if not exist "%grep%" goto skip_imp
+"%dumpbin%" /IMPORTS %exe_name% | "%grep%" -G ".*\.dll"
+:skip_imp
+
 call cecho /green "Build succeeded: %exe_name%"
 goto :EOF
 

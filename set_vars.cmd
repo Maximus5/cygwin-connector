@@ -12,3 +12,8 @@
 
 @set LOGGING=
 @if "%debug_log%"   == "YES" ( set "LOGGING=%LOGGING% -D_USE_DEBUG_LOG" )
+
+@set "USE_GCC_STATIC=-static-libgcc -static-libstdc++"
+
+@set "dumpbin=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\dumpbin.exe"
+@set "grep=%~d0\GitSDK\usr\bin\grep.exe"
