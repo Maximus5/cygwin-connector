@@ -63,8 +63,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // exists in cygwin+msys2
 #if defined(HAS_FORKPTY)
 #include <pty.h>
-#define ce_forkpty(pmaster,pmaster_err,winp) \
-	forkpty(pmaster, NULL, NULL, winp)
 #endif
 
 #define _max(a,b) (((a) > (b)) ? (a) : (b))
@@ -849,12 +847,14 @@ void child_reset(int a_slave_out = STDOUT_FILENO, int a_slave_err = STDERR_FILEN
 	fnRequestTermConnector = NULL;
 }
 
-#if !defined(HAS_FORKPTY)
 static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 {
+	#if !defined(HAS_FORKPTY)
 	int master_std = -1, slave_std = -1, master_err = -1, slave_err = -1;
-	sigset_t sset;
+	//sigset_t sset;
+	#endif
 
+	#if !defined(HAS_FORKPTY)
 	if (ce_createpty("master", &master_std, &slave_std, winp) < 0)
 		return -1;
 
@@ -864,6 +864,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		if (ce_createpty("stderr master", &master_err, &slave_err, winp) < 0)
 			return -1;
 	}
+	#endif
 
 	signal(SIGUSR1, sigusr1);
 	gb_sigusr1 = false;
@@ -875,7 +876,11 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 
 	errno = ENOENT;
 
+#if defined(HAS_FORKPTY)
+	pid = forkpty(pmaster, NULL, NULL, winp);
+#else
 	pid = fork();
+#endif
 
 	// Fork failed
 	if (pid == -1)
@@ -891,8 +896,17 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		int   newStd, newErr;
 		DWORD tBegin, tEnd;
 
+		#if defined(HAS_FORKPTY)
+		int slave_std = STDOUT_FILENO, slave_err = STDERR_FILENO;
+		#endif
+
 		// To be sure we will not call these functions in child
+		#if defined(HAS_FORKPTY)
+		child_reset();
+		#else
 		child_reset(slave_std, (slave_err >= 0) ? slave_err : slave_std);
+		#endif
+
 
 		// Don't use logging descriptor in child
 		if (gnLogFile != -1)
@@ -929,11 +943,14 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 
 		// TODO: tty_ioctl(TIOCSPGRP?)
 
+		#if !defined(HAS_FORKPTY)
 		// Close master descriptors
 		close(master_std);
 		if (master_err >= 0)
 			close(master_err);
+		#endif
 
+		#if !defined(HAS_FORKPTY)
 		if (verbose)
 		{
 			write_verbose("\033[33;40m{PID:%u} ce_forkpty child: std=%i, err=%i\033[m\r\n", getpid(), slave_std, slave_err);
@@ -951,6 +968,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 
 		if (slave_err < 0)
 			slave_err = slave_std;
+		#endif
 
 		stdName = ttyname(slave_std);
 		errName = (slave_err == slave_std) ? stdName : ttyname(slave_err);
@@ -962,6 +980,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 				write_verbose("\033[33;40m{PID:%u} ttyname(%i)=`%s`\033[m\r\n", getpid(), slave_std, errName ? errName : "<null>");
 		}
 
+		#if !defined(HAS_FORKPTY)
 		// Set descriptors to standard IN/OUT/ERR ids
 		if (slave_std != STDIN_FILENO)
 		{
@@ -1006,6 +1025,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 			close(slave_std);
 		if ((slave_err != slave_std) && (slave_err > STDERR_FILENO))
 			close(slave_err);
+		#endif
 
 		// Child "login into terminal" succeeded
 		return 0;
@@ -1019,6 +1039,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		write_verbose("\033[31;40m\033[K{PID:%u} child pid=%i pgid=%i was created (ourpgid=%i)\033[m\r\n", getpid(), pid, getpgid(pid), getpgrp());
 	}
 
+	#if !defined(HAS_FORKPTY)
 	if (slave_std >= 0)
 		close(slave_std);
 	if (slave_err >= 0)
@@ -1027,11 +1048,11 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		*pmaster = master_std;
 	if (pmaster_err)
 		*pmaster_err = master_err;
+	#endif
 
 	// Fork succeeded
 	return pid;
 }
-#endif
 
 void create_log_file(const char* pszDir)
 {
