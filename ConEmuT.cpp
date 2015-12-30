@@ -915,7 +915,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 			write_verbose("\033[30;41m\033[K{PID:%u} setsid() failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
 			return -1;
 		}
-		else
+		else if (verbose)
 		{
 			write_verbose("\033[33;40m\033[K{PID:%u} setsid executed (pgid=%i)\033[m\r\n", getpid(), getpgrp());
 		}
