@@ -281,6 +281,13 @@ static void sigusr1(int sig)
 	}
 }
 
+void sigusr1_throw(pid_t a_pid)
+{
+	if (verbose)
+		write_verbose("\033[%u;40m{PID:%u} raising SIGUSR1 in pid=%i\033[m\r\n", pid?31:33, getpid(), a_pid);
+	kill(a_pid, SIGUSR1);
+}
+
 char * const * child_argv = NULL;
 const char * work_dir = NULL;
 
@@ -1231,9 +1238,7 @@ int main(int argc, char** argv)
 		}
 
 		// Inform parent "we are ready to shell"
-		if (verbose)
-			write_verbose("\033[33;40m{PID:%u} raising SIGUSR1 in pid=%i\033[m\r\n", getpid(), getppid());
-		kill(getppid(), SIGUSR1);
+		sigusr1_throw(getppid());
 		signal(SIGUSR1, SIG_DFL);
 
 		if (verbose)
@@ -1302,9 +1307,7 @@ int main(int argc, char** argv)
 		}
 
 		// Thaw children
-		if (verbose)
-			write_verbose("\033[31;40m{PID:%u} raising SIGUSR1 in pid=%i\033[m\r\n", getpid(), pid);
-		kill(pid, SIGUSR1);
+		sigusr1_throw(pid);
 
 		iMainRc = run();
 	}
