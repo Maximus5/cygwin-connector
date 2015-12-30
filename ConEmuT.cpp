@@ -721,23 +721,36 @@ static void print_environ(bool bChild)
 static int print_isatty(bool bChild)
 {
 	bool isTty = true;
-	int iTty, errNo;
+	int iTty, errNoTty, errNoPgrp;
+	pid_t ttyPgrp = -1;
 	char* ttyName;
 
 	for (int f = STDIN_FILENO; f <= STDERR_FILENO; f++)
 	{
 		ttyName = ttyname(f);
+
+		errno = 0;
 		iTty = isatty(f);
-		errNo = errno;
+		errNoTty = errno;
+
+		errno = 0;
+		ttyPgrp = tcgetpgrp(f);
+		errNoPgrp = errno;
+
 		if (iTty == 1)
 		{
-			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; pgrp=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, ttyPgrp, ttyName?ttyName:"<NULL>");
 		}
 		else
 		{
-			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; errno=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, errNo, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; pgrp=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, ttyPgrp, ttyName?ttyName:"<NULL>");
 			isTty = false;
 		}
+
+		if (errNoTty)
+			write_verbose("\033[%u;40m{PID:%u}    isatty error (%i): %s\033[m\n", pid?31:33, getpid(), errNoTty, strerror(errNoTty));
+		if (errNoPgrp)
+			write_verbose("\033[%u;40m{PID:%u}    tcgetpgrp error (%i): %s\033[m\n", pid?31:33, getpid(), errNoPgrp, strerror(errNoPgrp));
 	}
 
 	return isTty ? 0 : 1;
