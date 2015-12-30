@@ -114,5 +114,5 @@ echo --- build errors (begin)
 type "%exe_name%.log"
 echo --- build errors (end)
 call cecho "%err_msg%"
-rem exit /B 99
+exit /B 99
 endlocal
