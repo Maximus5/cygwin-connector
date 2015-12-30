@@ -351,7 +351,9 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 		{
 			// Child (client) side
 			ssize_t term_written;
-			term_written = write((strm == wps_Output) ? slave_std_out : slave_std_err, buf, len);
+			int h_out = (strm == wps_Output) ? slave_std_out : slave_std_err;
+			//if (h_out < 0) h_out = STDOUT_FILENO;
+			term_written = write(h_out, buf, len);
 			bRc = (term_written > 0);
 			written = term_written;
 		}
