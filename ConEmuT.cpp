@@ -30,8 +30,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #undef _USE_DEBUG_LOG_INPUT
 
-//#define SHOW_CHILD_ERR_MSG
-#undef SHOW_CHILD_ERR_MSG
+#define SHOW_CHILD_ERR_MSG
+//#undef SHOW_CHILD_ERR_MSG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -392,6 +392,8 @@ void child_msg_box(const char* text, const char* title)
 {
 	MessageBox(NULL, text, title, MB_SYSTEMMODAL);
 }
+#else
+#define child_msg_box(text,title)
 #endif
 
 void child_err_msg(const char* reason)
@@ -1263,6 +1265,7 @@ int main(int argc, char** argv)
 	// Child process (going to start shell)
 	else if (!pid)
 	{
+		child_msg_box("child process created","connector's child");
 		child_reset();
 
 		// Reset signals
@@ -1316,6 +1319,8 @@ int main(int argc, char** argv)
 			print_environ(true);
 		}
 
+		child_msg_box("raising SIGUSR1 in parent","connector's child");
+
 		// Inform parent "we are ready to shell"
 		sigusr1_throw(getppid());
 		signal(SIGUSR1, SIG_DFL);
@@ -1332,6 +1337,8 @@ int main(int argc, char** argv)
 		// And it succeeds if this `bin` exists in %PATH%.
 		signal(SIGSEGV, sigfault);
 
+		child_msg_box("calling execvp","connector's child");
+
 		execvp(child_argv[0], child_argv);
 
 		// If we get here, exec failed.
@@ -1343,6 +1350,7 @@ int main(int argc, char** argv)
 	// Parent process
 	else
 	{
+		child_msg_box("child process created","connector");
 		char *dev = ptsname(pty_fd);
 
 		if (verbose)
