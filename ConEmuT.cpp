@@ -33,6 +33,12 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define SHOW_CHILD_ERR_MSG
 //#undef SHOW_CHILD_ERR_MSG
 
+#if __GNUC_MINOR__ >= 9
+#define HAS_FORKPTY
+#else
+#undef HAS_FORKPTY
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -53,6 +59,13 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <unistd.h>
 #include <utmp.h>
+
+// exists in cygwin+msys2
+#if defined(HAS_FORKPTY)
+#include <pty.h>
+#define ce_forkpty(pmaster,pmaster_err,winp) \
+	forkpty(pmaster, NULL, NULL, winp)
+#endif
 
 #define _max(a,b) (((a) > (b)) ? (a) : (b))
 
@@ -836,6 +849,7 @@ void child_reset(int a_slave_out = STDOUT_FILENO, int a_slave_err = STDERR_FILEN
 	fnRequestTermConnector = NULL;
 }
 
+#if !defined(HAS_FORKPTY)
 static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 {
 	int master_std = -1, slave_std = -1, master_err = -1, slave_err = -1;
@@ -1017,6 +1031,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 	// Fork succeeded
 	return pid;
 }
+#endif
 
 void create_log_file(const char* pszDir)
 {
