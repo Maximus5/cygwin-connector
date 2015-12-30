@@ -30,6 +30,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #undef _USE_DEBUG_LOG_INPUT
 
+//#define SHOW_CHILD_ERR_MSG
+#undef SHOW_CHILD_ERR_MSG
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -382,6 +385,29 @@ static void write_verbose(const char *buf, ...)
 		va_end(args);
 	}
 	write_console((ilen > 0) ? szBuf : buf, -1, wps_Error);
+}
+
+#if defined(SHOW_CHILD_ERR_MSG)
+void child_msg_box(const char* text, const char* title)
+{
+	MessageBox(NULL, text, title, MB_SYSTEMMODAL);
+}
+#endif
+
+void child_err_msg(const char* reason)
+{
+	int e = errno;
+	const char* pszErDescr = strerror(errno);
+	#if defined(SHOW_CHILD_ERR_MSG)
+	char* pchMsg = (char*)malloc(255+pszErDescr?strlen(pszErDescr):0);
+	if (pchMsg)
+	{
+		sprintf(pchMsg, "{PID:%u} %s (%i): %s", getpid(), reason ? reason : "<unknown fail>", e, pszErDescr);
+		child_msg_box(pchMsg, "connector");
+		free(pchMsg);
+	}
+	#endif
+	write_verbose("\033[30;41m\033[K{PID:%u} %s (%i): %s\033[m\r\n", getpid(), reason ? reason : "<unknown fail>", e, pszErDescr);
 }
 
 static int resize_pty(int pty, struct winsize *winp)
@@ -781,6 +807,20 @@ static int ce_createpty(const char* adescr, int *pmaster, int *pslave, struct wi
 	return 0;
 }
 
+void child_reset(int a_slave_out = STDOUT_FILENO, int a_slave_err = STDERR_FILENO)
+{
+	pid = 0;
+
+	signal(SIGUSR1, sigusr1);
+	gb_sigusr1 = false;
+
+	slave_std_out = a_slave_out;
+	slave_std_err = a_slave_err;
+
+	memset(&Connector, 0, sizeof(Connector));
+	fnRequestTermConnector = NULL;
+}
+
 static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 {
 	int master_std = -1, slave_std = -1, master_err = -1, slave_err = -1;
@@ -811,7 +851,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 	// Fork failed
 	if (pid == -1)
 	{
-		write_verbose("\033[30;41m\033[K{PID:%u} fork failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
+		child_err_msg("fork failed");
 		return -1;
 	}
 
@@ -823,10 +863,7 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		DWORD tBegin, tEnd;
 
 		// To be sure we will not call these functions in child
-		memset(&Connector, 0, sizeof(Connector));
-		fnRequestTermConnector = NULL;
-		slave_std_out = slave_std;
-		slave_std_err = (slave_err >= 0) ? slave_err : slave_std;
+		child_reset(slave_std, (slave_err >= 0) ? slave_err : slave_std);
 
 		// Don't use logging descriptor in child
 		if (gnLogFile != -1)
@@ -834,6 +871,17 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 			close(gnLogFile);
 			gnLogFile = -1;
 		}
+
+		if (verbose)
+		{
+			write_verbose("\033[33;40m\033[K{PID:%u} child created (pgid=%i)\033[m\r\n", getpid(), getpgrp());
+		}
+
+		//if (setpgid(getpid(), getpid())
+		//if (setpgrp() == -1)
+		//{
+		//	write_verbose("\033[30;41m\033[K{PID:%u} setpgrp failed\033[m\r\n", getpid(), getpgrp());
+		//}
 
 		if (verbose)
 		{
@@ -866,6 +914,10 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 		{
 			write_verbose("\033[30;41m\033[K{PID:%u} setsid() failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
 			return -1;
+		}
+		else
+		{
+			write_verbose("\033[33;40m\033[K{PID:%u} setsid executed (pgid=%i)\033[m\r\n", getpid(), getpgrp());
 		}
 
 		if (slave_err < 0)
@@ -1054,10 +1106,12 @@ int main(int argc, char** argv)
 		else if (strcmp(cur_argv[0], "--environ") == 0)
 		{
 			prn_env = true;
+			pid = 0;
 			print_environ(false);
 		}
 		else if (strcmp(cur_argv[0], "--isatty") == 0)
 		{
+			pid = 0;
 			exit(print_isatty(true));
 		}
 		else if ((strcmp(cur_argv[0], "-l") == 0) || (strcmp(cur_argv[0], "--log") == 0))
@@ -1097,6 +1151,7 @@ int main(int argc, char** argv)
 		}
 		else if ((strcmp(cur_argv[0], "--version") == 0))
 		{
+			pid = 0;
 			print_version();
 			exit(1);
 		}
@@ -1108,6 +1163,7 @@ int main(int argc, char** argv)
 				exe_name = strrchr(argv[0], '/');
 				if (exe_name) exe_name++; else exe_name = argv[0];
 			}
+			pid = 0;
 			print_version();
 			printf("Usage: %s [switches] [- | shell [shell switches]]\n", exe_name ? exe_name : "conemu-*-*.exe");
 			printf("  -h, --help       this help\n");
@@ -1188,12 +1244,14 @@ int main(int argc, char** argv)
 	if (pid < 0)
 	{
 		// If we get here, fork (CreateProcess for child connector process) was failed.
-		write_verbose("\033[30;41m\033[K{PID:%u} forkpty failed (%i): %s\033[m\r\n", getpid(), errno, strerror(errno));
+		child_err_msg("ce_forkpty failed");
 		exit(253);
 	}
 	// Child process (going to start shell)
 	else if (!pid)
 	{
+		child_reset();
+
 		// Reset signals
 		signal(SIGHUP, SIG_DFL);
 		signal(SIGINT, SIG_DFL);
@@ -1216,6 +1274,12 @@ int main(int argc, char** argv)
 		// Invoke command
 		char * const def_argv[] = {"/usr/bin/sh", "-l", "-i", NULL};
 		child_argv = cur_argv[0] ? cur_argv : def_argv;
+
+		#if defined(SHOW_CHILD_ERR_MSG)
+		char chMsg[255];
+		sprintf(chMsg, "executing shell (WriteText:%u) (pid=%i)", Connector.WriteText?1:0, pid);
+		child_msg_box(chMsg, verbose ? "connector-verbose" : "connector-non-verbose");
+		#endif
 
 		if (work_dir)
 		{
@@ -1258,7 +1322,7 @@ int main(int argc, char** argv)
 		execvp(child_argv[0], child_argv);
 
 		// If we get here, exec failed.
-		write_verbose("\033[30;41m\033[K{PID:%u} Failed to run shell (%i): %s\033[m\r\n", getpid(), child_argv[0], errno, strerror(errno));
+		child_err_msg("failed to run shell");
 		// if we exit immediately, some versions of cygwin/msys will not be able to print our message
 		sleep(1);
 		exit(errno ? errno : 252);
