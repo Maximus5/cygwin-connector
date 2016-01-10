@@ -432,6 +432,8 @@ static int resize_pty(int pty, struct winsize *winp)
 		// SIGWINCH signal is sent to the foreground process group
 		iRc = ioctl(pty, TIOCSWINSZ, winp);
 
+		debug_log_format("resize_pty: TIOCSWINSZ(pty=%i,cell={%i,%i},pix={%i,%i})=%i\n", pty, winp->ws_col, winp->ws_row, winp->ws_xpixel, winp->ws_ypixel, iRc);
+
 		if (verbose)
 		{
 			if (iRc == -1)
@@ -446,6 +448,10 @@ static int resize_pty(int pty, struct winsize *winp)
 			sprintf(szLogSize, "\x1B]9;11;\"TIOCSWINSZ(%i,%i) %s\"\x07", winp->ws_col, winp->ws_row, (iRc == -1) ? "failed" : "succeeded");
 			write(gnLogFile, szLogSize, strlen(szLogSize));
 		}
+	}
+	else
+	{
+		debug_log_format("resize_pty: invalid pty\n");
 	}
 
 	return iRc;
@@ -489,8 +495,14 @@ static DWORD WINAPI read_input_thread( void * )
 					{
 						if (pty_fd >= 0)
 							resize_pty(pty_fd, &winp);
+						else
+							debug_log_format("read_input_thread: invalid pty_fd\n");
 						if (pty_err >= 0)
 							resize_pty(pty_err, &winp);
+					}
+					else
+					{
+						debug_log_format("read_input_thread: query_console_size failed!!!\n");
 					}
 				}
 				break;
