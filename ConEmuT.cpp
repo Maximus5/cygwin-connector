@@ -459,12 +459,14 @@ static int resize_pty(int pty, struct winsize *winp)
 
 static bool query_console_size(struct winsize* winp)
 {
+	bool bRc = false;
 	memset(winp, 0, sizeof(winp));
 	CONSOLE_SCREEN_BUFFER_INFO csbi = {};
 	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
 	{
 		winp->ws_row = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 		winp->ws_col = csbi.dwSize.X;
+		bRc = true;
 	}
 	else
 	{
@@ -473,6 +475,7 @@ static bool query_console_size(struct winsize* winp)
 	}
 	winp->ws_xpixel = winp->ws_col * 3;
 	winp->ws_ypixel = winp->ws_row * 5;
+	return bRc;
 }
 
 static DWORD WINAPI read_input_thread( void * )
