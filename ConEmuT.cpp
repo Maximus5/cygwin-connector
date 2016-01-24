@@ -1339,7 +1339,7 @@ int main(int argc, char** argv)
 		tcsetattr(0, TCSANOW, &attr);
 
 		// Invoke command
-		char * const def_argv[] = {"/usr/bin/sh", "-l", "-i", NULL};
+		char * const def_argv[] = {"/usr/bin/bash", "-l", "-i", NULL};
 		child_argv = cur_argv[0] ? cur_argv : def_argv;
 
 		#if defined(SHOW_CHILD_ERR_MSG)
