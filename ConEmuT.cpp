@@ -1106,13 +1106,13 @@ void create_log_file(const char* pszDir)
 			int len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, 0, 0, 0, 0);
 			if (len > 0)
 			{
-				char* pszUtf8 = new char[len];
+				char* pszUtf8 = (char*)malloc(len*sizeof(*pszUtf8));
 				if (pszUtf8 && ((len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, pszUtf8, len, 0, 0)) > 0))
 				{
 					write(gnLogFile, pszUtf8, len);
 					write(gnLogFile, "\n----------\n", 12);
 				}
-				delete[] pszUtf8;
+				free(pszUtf8);
 			}
 		}
 	}
