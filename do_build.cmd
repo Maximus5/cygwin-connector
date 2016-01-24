@@ -88,7 +88,7 @@ windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 echo Compiling code and linking
-g++ %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
+gcc -fno-rtti %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign
