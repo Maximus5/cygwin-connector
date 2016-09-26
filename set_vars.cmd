@@ -17,3 +17,5 @@
 
 @set "dumpbin=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\dumpbin.exe"
 @set "grep=%~d0\GitSDK\usr\bin\grep.exe"
+
+@if exist "%~dp0set_vars_user.cmd" @call "%~dp0set_vars_user.cmd"
