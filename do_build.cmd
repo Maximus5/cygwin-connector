@@ -1,5 +1,7 @@
 @echo off
 
+setlocal
+
 rem Build parameters
 set sign_code=YES
 set debug_log=NO
