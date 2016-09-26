@@ -46,7 +46,7 @@ goto :build
 
 :msys1
 set toolchain=%msys1toolchain%
-set PATH=%msys1toolchain%\bin;%PATH%
+set PATH=%msys1toolchain%\bin;%msys1toolchain%\..\..\mingw\bin;%PATH%
 set exe_name=%msys1exe%
 set USE_GCC_STATIC=
 call :bit32
