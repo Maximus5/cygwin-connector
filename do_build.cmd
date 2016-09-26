@@ -6,6 +6,11 @@ rem Build parameters
 set sign_code=YES
 set debug_log=NO
 
+rem User may turn on Verbose output using "-v" switch
+set verbose=NO
+if "%~1" == "-v" set verbose=YES
+if "%~2" == "-v" set verbose=YES
+
 set NO_DEBUG=-s -O3
 
 rem This defines paths to cygwin/msys toolchains
@@ -86,10 +91,15 @@ call cecho /yellow "Using: `%toolchain%` for `%exe_name%` %DIRBIT%bit"
 
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
 call cecho /green "Compiling resources"
+rem if %verbose%==YES echo %PATH%
+if %verbose%==YES which windres.exe
+if %verbose%==YES echo windres.exe %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o
 windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 call cecho /green "Compiling code and linking"
+if %verbose%==YES which gcc.exe
+if %verbose%==YES echo gcc -fno-rtti %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG%
 gcc -fno-rtti %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
@@ -101,6 +111,7 @@ call sign "%exe_name%" > nul
 endlocal
 
 call cecho /green "Checking for imports with dumpbin and grep"
+if %verbose%==YES echo "%dumpbin%" /IMPORTS %exe_name% ^| "%grep%" -G ".*\.dll"
 "%dumpbin%" /IMPORTS %exe_name% | "%grep%" -G ".*\.dll"
 :skip_imp
 
