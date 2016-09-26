@@ -85,25 +85,22 @@ setlocal
 call cecho /yellow "Using: `%toolchain%` for `%exe_name%` %DIRBIT%bit"
 
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
-echo Compiling resources
+call cecho /green "Compiling resources"
 windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
-echo Compiling code and linking
+call cecho /green "Compiling code and linking"
 gcc -fno-rtti %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign
-echo Signing `%exe_name%`
+call cecho /green "Signing `%exe_name%`"
 call sign "%exe_name%" > nul
 :skip_sign
 
 endlocal
 
-rem if not defined dumpbin goto skip_imp
-rem if not exist "%dumpbin%" goto skip_imp
-rem if not defined grep goto skip_imp
-rem if not exist "%grep%" goto skip_imp
+call cecho /green "Checking for imports with dumpbin and grep"
 "%dumpbin%" /IMPORTS %exe_name% | "%grep%" -G ".*\.dll"
 :skip_imp
 
