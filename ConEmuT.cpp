@@ -28,15 +28,22 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define _GNU_SOURCE
+#ifdef __CYGWIN__
+#include <cygwin/version.h>
+#endif
+
 #undef _USE_DEBUG_LOG_INPUT
 
 //#define SHOW_CHILD_ERR_MSG
 #undef SHOW_CHILD_ERR_MSG
 
-#if __GNUC_MINOR__ >= 9
+#if (__GNUC_MINOR__ >= 9) || (CYGWIN_VERSION_API_MINOR>=93)
 #define HAS_FORKPTY
+#pragma message "Has forkpty"
 #else
 #undef HAS_FORKPTY
+#pragma message "Does NOT have forkpty"
 #endif
 
 #include <stdio.h>
@@ -785,6 +792,7 @@ static int print_isatty(bool bChild)
 }
 
 
+#if !defined(HAS_FORKPTY)
 static int ce_createpty(const char* adescr, int *pmaster, int *pslave, struct winsize *winp)
 {
 	char* ptsName;
@@ -847,6 +855,7 @@ static int ce_createpty(const char* adescr, int *pmaster, int *pslave, struct wi
 
 	return 0;
 }
+#endif
 
 void child_reset(int a_slave_out = STDOUT_FILENO, int a_slave_err = STDERR_FILENO)
 {
