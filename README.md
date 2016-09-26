@@ -33,3 +33,23 @@ Please note, status of this plugin is ‘Experimental’.
     THIS SOFTWARE IS PROVIDED BY THE AUTHOR ''AS IS'' AND ANY EXPRESS OR
     IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
     OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+
+## Some build notes
+
+Some preparations may be required to build ‘connector’ from sources.
+
+### Common
+
+Rename `set_vars_user.sample.cmd` to `set_vars_user.cmd` if you need to define your own paths to used toolchains (cygwin, msys).
+
+### MinGW / MSys 1.0
+
+* Run `bin\mingw-get.exe`.
+* Select ‘MSYS System Builder / msys-gcc’ to install and ‘Apply changes’ from menu.
+
+### Cygwin 32/64 bit
+
+I used to install 32bit and 64bit cygwin toolchains into separate folders to avoid path problems.
+
+* In cygwin setup utility (e.g. `setup-x86_64.exe`) type ‘g++’ in the ‘search’ field.
+* Install ‘gcc-g++: GNU Compiler Collection (C++)’.
