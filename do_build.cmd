@@ -110,10 +110,24 @@ call sign "%exe_name%" > nul
 
 endlocal
 
+rem Checking for imports with dumpbin and grep
+if not defined dumpbin goto no_dumpbin
+if not exist "%dumpbin%" goto no_dumpbin
+if not defined grep goto no_grep
+if not exist "%grep%" goto no_grep
 call cecho /green "Checking for imports with dumpbin and grep"
 if %verbose%==YES echo "%dumpbin%" /IMPORTS %exe_name% ^| "%grep%" -G ".*\.dll"
 "%dumpbin%" /IMPORTS %exe_name% | "%grep%" -G ".*\.dll"
-:skip_imp
+goto imp_done
+:no_dumpbin
+call cecho "dumpbin.exe not found!"
+set dumpbin
+goto imp_done
+:no_grep
+call cecho "grep.exe not found!"
+set grep
+goto imp_done
+:imp_done
 
 call cecho /green "Build succeeded: %exe_name%"
 goto :EOF
