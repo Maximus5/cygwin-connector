@@ -2,7 +2,7 @@
 /*
 from https://github.com/Alexpux/MSYS2-packages/issues/265
 
-Copyright (c) 2015 Maximus5
+Copyright (c) 2015-2016 Maximus5
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -224,6 +224,7 @@ static HANDLE input_thread = NULL;
 static DWORD input_tid = 0;
 static void stop_threads();
 static bool termination = false;
+static int check_child(bool force_print = false);
 
 static BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
@@ -575,14 +576,17 @@ static int process_pty(int& pty, char* buf, const int bufCount, const int prefer
 	else
 	{
 		if (verbose)
-			write_verbose("\r\n\033[31;40m{PID:%u} read(%i) failed (%i): %s\033[m\r\n", getpid(), pty, errno, strerror(errno));
+		{
+			write_verbose("\r\n\033[31;40m{PID:%u} read(pty=%i) failed (len=%i,errno=%i): %s\033[m\r\n", getpid(), pty, len, errno, strerror(errno));
+			check_child();
+		}
 		pty = -1;
 	}
 
 	return len;
 }
 
-static int check_child(bool force_print = false)
+static int check_child(bool force_print /*= false*/)
 {
 	if (pid <= 0)
 		return -1;
