@@ -1,4 +1,4 @@
-// Version Information for ConEmuT
+// Version Information for Cygwin/Msys connector
 
 #include <windows.h>
 #include "version.h"
