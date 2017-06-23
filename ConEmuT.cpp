@@ -121,6 +121,7 @@ typedef struct tag_RequestTermConnectorParm
 	BOOL (WINAPI* WriteText)(LPCSTR pBuffer, DWORD cbWrite, PDWORD pcbWritten, WriteProcessedStream nStream);
 } RequestTermConnectorParm;
 
+static HMODULE hConEmuHk = NULL;
 static RequestTermConnectorParm Connector = {};
 
 typedef int (WINAPI* RequestTermConnector_t)(/*[IN/OUT]*/RequestTermConnectorParm* Parm);
@@ -129,7 +130,6 @@ static RequestTermConnector_t fnRequestTermConnector = NULL;
 static int RequestTermConnector()
 {
 	int iRc;
-	HMODULE hConEmuHk;
 	char sModule[] =
 		#if defined(__x86_64__)
 			"ConEmuHk64.dll"
@@ -137,42 +137,68 @@ static int RequestTermConnector()
 			"ConEmuHk.dll"
 		#endif
 			;
+	const char* basedir;
 
-	hConEmuHk = GetModuleHandleA(sModule);
+	basedir = getenv("ConEmuBaseDir");
+	if (basedir && *basedir)
+	{
+		char* path;
+		path = (char*)malloc(strlen(basedir)+2+strlen(sModule));
+		if (path)
+		{
+			strcpy(path, basedir);
+			strcat(path, "\\");
+			strcat(path, sModule);
+			hConEmuHk = LoadLibraryA(path);
+			free(path);
+		}
+	}
 	if (hConEmuHk == NULL)
 	{
-		write_verbose("\r\n\033[31;40m{PID:%u} %s is not found, exiting\033[m\r\n", getpid(), sModule);
+		hConEmuHk = LoadLibraryA(sModule);
+	}
+	if (hConEmuHk == NULL)
+	{
+		write_verbose("\r\n{PID:%u} %s is not found, exiting\r\n", getpid(), sModule);
 		return -1;
 	}
+
 	fnRequestTermConnector = (RequestTermConnector_t)GetProcAddress(hConEmuHk, "RequestTermConnector");
 	if (fnRequestTermConnector == NULL)
 	{
-		write_verbose("\r\n\033[31;40m{PID:%u} RequestTermConnector function is not found, exiting\033[m\r\n", getpid());
-		return -1;
+		write_verbose("\r\n{PID:%u} RequestTermConnector function is not found, exiting\r\n", getpid());
+		iRc = -1;
 	}
+	else
+	{
 
-	// Prepare arguments
-	memset(&Connector, 0, sizeof(Connector));
-	Connector.cbSize = sizeof(Connector);
-	Connector.Mode = rtc_Start;
-	Connector.pszTtyName = ttyname(STDOUT_FILENO);
-	Connector.pszTerm = getenv("TERM");
+		// Prepare arguments
+		memset(&Connector, 0, sizeof(Connector));
+		Connector.cbSize = sizeof(Connector);
+		Connector.Mode = rtc_Start;
+		Connector.pszTtyName = ttyname(STDOUT_FILENO);
+		Connector.pszTerm = getenv("TERM");
 
-	iRc = fnRequestTermConnector(&Connector);
+		iRc = fnRequestTermConnector(&Connector);
+
+		if (iRc != 0)
+		{
+			write_verbose("\r\n{PID:%u} RequestTermConnector failed (%i). %s\r\n", getpid(), iRc, Connector.pszError ? Connector.pszError : "");
+			iRc = -1;
+		}
+		else if (!Connector.ReadInput || !Connector.WriteText)
+		{
+			write_verbose("\r\n{PID:%u} RequestTermConnector returned NULL. %s\r\n", getpid(), Connector.pszError ? Connector.pszError : "");
+			iRc = -1;
+		}
+	}
 
 	if (iRc != 0)
 	{
-		write_verbose("\r\n\033[31;40m{PID:%u} RequestTermConnector failed (%i). %s\033[m\r\n", getpid(), iRc, Connector.pszError ? Connector.pszError : "");
-		return -1;
+		FreeLibrary(hConEmuHk);
+		hConEmuHk = NULL;
 	}
-
-	if (!Connector.ReadInput || !Connector.WriteText)
-	{
-		write_verbose("\r\n\033[31;40m{PID:%u} RequestTermConnector returned NULL. %s\033[m\r\n", getpid(), Connector.pszError ? Connector.pszError : "");
-		return -1;
-	}
-
-	return 0;
+	return iRc;
 }
 
 static void StopTermConnector()
@@ -192,6 +218,11 @@ static void StopTermConnector()
 			write_verbose("\r\n\033[31;40m{PID:%u} closing log file (%i)\033[m\r\n", getpid(), gnLogFile);
 		close(gnLogFile);
 		gnLogFile = -1;
+	}
+
+	if (hConEmuHk)
+	{
+		FreeLibrary(hConEmuHk);
 	}
 }
 
