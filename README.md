@@ -40,7 +40,8 @@ Some preparations may be required to build ‘connector’ from sources.
 
 ### Common
 
-Rename `set_vars_user.sample.cmd` to `set_vars_user.cmd` if you need to define your own paths to used toolchains (cygwin, msys).
+Copy `set_vars_user.sample.cmd` to `set_vars_user.cmd` and edit new file
+to define your own paths to used toolchains (cygwin, msys) and utilities.
 
 ### MinGW / MSys 1.0
 
@@ -51,5 +52,22 @@ Rename `set_vars_user.sample.cmd` to `set_vars_user.cmd` if you need to define y
 
 I used to install 32bit and 64bit cygwin toolchains into separate folders to avoid path problems.
 
-* In cygwin setup utility (e.g. `setup-x86_64.exe`) type ‘g++’ in the ‘search’ field.
+* In cygwin setup utility
+  [setup-x86.exe (32-bit)](https://cygwin.com/setup-x86.exe)
+  or
+  [setup-x86_64.exe (64-bit)](https://cygwin.com/setup-x86_64.exe)
+  type ‘g++’ in the ‘search’ field.
 * Install ‘gcc-g++: GNU Compiler Collection (C++)’.
+  If you don't see it, choose ‘Full’ in the ‘View’ drop-down listbox.
+  *Don't install* toolchains which *package* name are started with ‘mingw’ or ‘cygwin’.
+* Complete cygwin installation or update.
+
+### MSYS2 32/64 bit
+
+* Install MSYS2 using
+  [msys2-i686-latest.exe (32-bit)](http://repo.msys2.org/distrib/msys2-i686-latest.exe)
+  or
+  [msys2-x86_64-latest.exe (64-bit)](http://repo.msys2.org/distrib/msys2-x86_64-latest.exe).
+* Open msys shell
+* Run `pacman -Syuu` to install updates and close msys shell window. Repeat until there are updates.
+* Run `pacman -S --needed msys2-devel` to install required packages.
