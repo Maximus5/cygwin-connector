@@ -1,5 +1,9 @@
 @echo off
 
+rem Usage
+rem  do_build - w/o arguments, it build all targets
+rem  do_build [cygwin32 | cygwin64 | msys1 | msys32 | msys64] - build selected target
+
 setlocal
 
 rem Build parameters
@@ -92,7 +96,7 @@ call cecho /yellow "Using: `%toolchain%` for `%exe_name%` %DIRBIT%bit"
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
 call cecho /green "Compiling resources"
 rem if %verbose%==YES echo %PATH%
-if %verbose%==YES which windres.exe
+if %verbose%==YES where windres.exe
 if %verbose%==YES echo windres.exe %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o
 windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
@@ -136,6 +140,7 @@ goto :EOF
 set "err_msg=Build failed: %errorlevel%"
 echo --- build errors (begin)
 type "%exe_name%.log"
+set PATH
 echo --- build errors (end)
 call cecho "%err_msg%"
 exit /B 99
