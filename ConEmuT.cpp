@@ -549,8 +549,24 @@ static DWORD WINAPI read_input_thread( void * )
 				}
 				break;
 			case KEY_EVENT:
-				if (r.Event.KeyEvent.uChar.UnicodeChar
-					&& r.Event.KeyEvent.bKeyDown)
+				if (!r.Event.KeyEvent.bKeyDown)
+					break;
+				// special for 'Ctrl+Space'
+				if (r.Event.KeyEvent.wVirtualKeyCode == VK_SPACE || r.Event.KeyEvent.wVirtualKeyCode == '2' || r.Event.KeyEvent.wVirtualKeyCode == '`')
+				{
+					if (r.Event.KeyEvent.dwControlKeyState & (RIGHT_CTRL_PRESSED|LEFT_CTRL_PRESSED))
+					{
+						char s[5] = {0};
+						int len = 1; // 'Ctrl+Space' --> '\x00'
+						// TODO: Alt/Shift combo
+						ssize_t written = write(pty_fd, s, len);
+						#if defined(_USE_DEBUG_LOG_INPUT)
+						debug_log_format("read_input_thread: `\x%02u` written %i of %i bytes\n", (unsigned)s[0], written, len);
+						#endif
+						break;
+					}
+				}
+				if (r.Event.KeyEvent.uChar.UnicodeChar)
 				{
 					char s[5];
 					int len = WideCharToMultiByte(CP_UTF8, 0, &r.Event.KeyEvent.uChar.UnicodeChar, 1, s, sizeof(s)-1, 0, 0);
