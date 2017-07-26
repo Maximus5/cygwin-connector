@@ -789,19 +789,19 @@ static void print_environ(bool bChild)
 
 	if (!pp)
 	{
-		write_verbose("\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\n", getpid());
+		write_verbose("\033[31;40m{PID:%u} `environ` variable is NULL!\033[m\r\n", getpid());
 		return;
 	}
 
-	write_verbose("\033[31;40m{PID:%u} printing `environ` lines\033[m\n", getpid());
+	write_verbose("\033[31;40m{PID:%u} printing `environ` lines\033[m\r\n", getpid());
 
 	while (*pp)
 	{
 		write_console(*(pp++), -1);
-		write_console("\n", 1);
+		write_console("\r\n", 2);
 	}
 
-	write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\n", getpid(), (pp - environ));
+	write_verbose("\033[31;40m{PID:%u} end of `environ`, total=%i\033[m\r\n", getpid(), (pp - environ));
 }
 
 static int print_isatty(bool bChild)
@@ -825,18 +825,18 @@ static int print_isatty(bool bChild)
 
 		if (iTty == 1)
 		{
-			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; pgrp=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, ttyPgrp, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; pgrp=%i; ttyname()=`%s`\033[m\r\n", pid?31:33, getpid(), f, iTty, ttyPgrp, ttyName?ttyName:"<NULL>");
 		}
 		else
 		{
-			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; pgrp=%i; ttyname()=`%s`\033[m\n", pid?31:33, getpid(), f, iTty, ttyPgrp, ttyName?ttyName:"<NULL>");
+			write_verbose("\033[%u;40m{PID:%u} %i: isatty()=%i; pgrp=%i; ttyname()=`%s`\033[m\r\n", pid?31:33, getpid(), f, iTty, ttyPgrp, ttyName?ttyName:"<NULL>");
 			isTty = false;
 		}
 
 		if (errNoTty)
-			write_verbose("\033[%u;40m{PID:%u}    isatty error (%i): %s\033[m\n", pid?31:33, getpid(), errNoTty, strerror(errNoTty));
+			write_verbose("\033[%u;40m{PID:%u}    isatty error (%i): %s\033[m\r\n", pid?31:33, getpid(), errNoTty, strerror(errNoTty));
 		if (errNoPgrp)
-			write_verbose("\033[%u;40m{PID:%u}    tcgetpgrp error (%i): %s\033[m\n", pid?31:33, getpid(), errNoPgrp, strerror(errNoPgrp));
+			write_verbose("\033[%u;40m{PID:%u}    tcgetpgrp error (%i): %s\033[m\r\n", pid?31:33, getpid(), errNoPgrp, strerror(errNoPgrp));
 	}
 
 	return isTty ? 0 : 1;
@@ -1438,6 +1438,7 @@ int main(int argc, char** argv)
 
 		if (verbose)
 		{
+			write_verbose("\033[33;40m{PID:%u} argv[0]: `%s`\033[m\r\n", getpid(), argv[0]);
 			print_shell_args();
 		}
 
