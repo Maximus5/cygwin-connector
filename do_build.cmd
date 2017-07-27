@@ -25,6 +25,7 @@ rem For example: do_build cygwin32 conemu-cyg-32.exe
 if NOT "%~1" == "" goto :%~1
 
 rem Start build process for all toolchains
+set sign_code=NO
 rem *** conemu-cyg-32.exe
 call "%~0" cygwin32
 rem *** conemu-cyg-64.exe
@@ -35,6 +36,8 @@ rem *** conemu-msys2-32.exe
 call "%~0" msys32
 rem *** conemu-msys2-64.exe
 call "%~0" msys64
+rem Sign all generated executables
+set sign "%~dp0*.exe"
 
 rem Final cleaning
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )

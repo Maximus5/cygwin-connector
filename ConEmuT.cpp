@@ -1193,6 +1193,7 @@ int main(int argc, char** argv)
 	bool force_set_term = true;
 	char** cur_argv;
 	bool prn_env = false;
+	bool wsl_bridge = false;
 
 	cur_argv = argv[0] ? argv+1 : argv;
 	while (cur_argv[0])
@@ -1281,6 +1282,10 @@ int main(int argc, char** argv)
 			print_version();
 			exit(1);
 		}
+		else if ((strcmp(cur_argv[0], "--wsl") == 0) || (strcmp(cur_argv[0], "--wslbridge") == 0))
+		{
+			wsl_bridge = true;
+		}
 		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
 		{
 			char* exe_name;
@@ -1303,6 +1308,7 @@ int main(int argc, char** argv)
 			printf("      --shlvl      forces `set SHLVL=1` to avoid terminal reset on exit\n");
 			printf("      --verbose    additional information during startup\n");
 			printf("      --version    print version of this tool\n");
+			printf("      --wsl        run wslbridge to start Bash on Ubuntu on Windows 10\n");
 			exit(1);
 		}
 		else
@@ -1400,7 +1406,29 @@ int main(int argc, char** argv)
 
 		// Invoke command
 		char * const def_argv[] = {"/usr/bin/bash", "-l", "-i", NULL};
+		// Shell command line is specified in connector's argv[]
+		// or just run default bash login shell
 		child_argv = cur_argv[0] ? cur_argv : def_argv;
+		// But if wslbridge was requested, we need more logic
+		char** buf_argv = NULL;
+		if (wsl_bridge)
+		{
+			int child_cnt = 1; // the "/.../.../wslbridge.exe" and it's arguments from cur_argv?
+			for (int i = 0; cur_argv[i]; ++i, ++child_cnt);
+			buf_argv = (char**)calloc(child_cnt+1, sizeof(char*));
+			for (int i = 0; cur_argv[i]; ++i, ++child_cnt)
+				buf_argv[i+1] = cur_argv[i];
+			// The tail is ready, not the path for wslbridge.exe
+			// we expect it must be in the same dir where our connector's exe is located
+			const char wslbridge_exe[] = "wslbridge.exe";
+			int max_len = strlen(argv[0]) + strlen(wslbridge_exe);
+            buf_argv[0] = (char*)malloc(max_len*sizeof(buf_argv[0][0]));
+            strcpy(buf_argv[0], argv[0]);
+            char* slash = strrchr(buf_argv[0], '/');
+            if (slash) ++slash; else slash = buf_argv[0];
+            strcpy(slash, wslbridge_exe);
+            child_argv = buf_argv;
+		}
 
 		#if defined(SHOW_CHILD_ERR_MSG)
 		char chMsg[255];
