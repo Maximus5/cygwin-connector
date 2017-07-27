@@ -530,25 +530,27 @@ static DWORD WINAPI read_input_thread( void * )
 			switch (r.EventType)
 			{
 			case WINDOW_BUFFER_SIZE_EVENT:
+			{
+				winsize winp;
+				debug_log_format("read_input_thread: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
+				if (query_console_size(&winp))
 				{
-					winsize winp;
-					debug_log_format("read_input_thread: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
-					if (query_console_size(&winp))
-					{
-						if (pty_fd >= 0)
-							resize_pty(pty_fd, &winp);
-						else
-							debug_log_format("read_input_thread: invalid pty_fd\n");
-						if (pty_err >= 0)
-							resize_pty(pty_err, &winp);
-					}
+					if (pty_fd >= 0)
+						resize_pty(pty_fd, &winp);
 					else
-					{
-						debug_log_format("read_input_thread: query_console_size failed!!!\n");
-					}
+						debug_log_format("read_input_thread: invalid pty_fd\n");
+					if (pty_err >= 0)
+						resize_pty(pty_err, &winp);
+				}
+				else
+				{
+					debug_log_format("read_input_thread: query_console_size failed!!!\n");
 				}
 				break;
+			} // WINDOW_BUFFER_SIZE_EVENT
+			
 			case KEY_EVENT:
+			{
 				if (!r.Event.KeyEvent.bKeyDown)
 					break;
 				// special for 'Ctrl+Space'
@@ -579,10 +581,14 @@ static DWORD WINAPI read_input_thread( void * )
 						#endif
 					}
 				}
-				break; // KEY_EVENT
-			}
-		}
-	}
+				break;
+			} // KEY_EVENT
+
+			} // switch (r.EventType)
+
+		} // if (Connector.ReadInput
+	} // while (!termination)
+
 	return 0;
 }
 
