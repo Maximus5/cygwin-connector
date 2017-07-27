@@ -1419,21 +1419,33 @@ int main(int argc, char** argv)
 		char** buf_argv = NULL;
 		if (wsl_bridge)
 		{
-			int child_cnt = 1; // the "/.../.../wslbridge.exe" and it's arguments from cur_argv?
+			// the "/.../.../wslbridge.exe" + "-eConEmuBaseDir" and it's arguments from cur_argv?
+			int child_cnt = 2;
 			for (int i = 0; cur_argv[i]; ++i, ++child_cnt);
+			// allocate +1 more item for terminating NULL
 			buf_argv = (char**)calloc(child_cnt+1, sizeof(char*));
-			for (int i = 0; cur_argv[i]; ++i, ++child_cnt)
-				buf_argv[i+1] = cur_argv[i];
-			// The tail is ready, not the path for wslbridge.exe
-			// we expect it must be in the same dir where our connector's exe is located
-			const char wslbridge_exe[] = "wslbridge.exe";
+
+			// We expect the wslbridge.exe must be located in the
+			// "/wsl" subdir of the dir with our connector's exe
+			const char wslbridge_exe[] = "wsl/wslbridge.exe";
 			int max_len = strlen(argv[0]) + strlen(wslbridge_exe);
-            buf_argv[0] = (char*)malloc(max_len*sizeof(buf_argv[0][0]));
-            strcpy(buf_argv[0], argv[0]);
-            char* slash = strrchr(buf_argv[0], '/');
-            if (slash) ++slash; else slash = buf_argv[0];
-            strcpy(slash, wslbridge_exe);
-            child_argv = buf_argv;
+			buf_argv[0] = (char*)malloc(max_len*sizeof(**buf_argv));
+			strcpy(buf_argv[0], argv[0]);
+			char* slash = strrchr(buf_argv[0], '/');
+			if (slash) ++slash; else slash = buf_argv[0];
+			strcpy(slash, wslbridge_exe);
+
+			// Bypass to linux side env.var "ConEmuBaseDir" (JFI)
+			const char env_var[] = "-eConEmuBaseDir";
+			buf_argv[1] = (char*)malloc((strlen(env_var)+1)*sizeof(**buf_argv));
+			strcpy(buf_argv[1], env_var);
+
+			// Prepare the tail, if exists
+			for (int i = 0; cur_argv[i]; ++i, ++child_cnt)
+				buf_argv[i+2] = cur_argv[i];
+
+			// All done, arguments are ready
+			child_argv = buf_argv;
 		}
 
 		#if defined(SHOW_CHILD_ERR_MSG)
