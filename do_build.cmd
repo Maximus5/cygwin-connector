@@ -7,7 +7,7 @@ rem  do_build [cygwin32 | cygwin64 | msys1 | msys32 | msys64] - build selected t
 setlocal
 
 rem Build parameters
-set sign_code=YES
+if not defined sign_code set sign_code=YES
 set debug_log=NO
 
 rem User may turn on Verbose output using "-v" switch
@@ -37,7 +37,7 @@ call "%~0" msys32
 rem *** conemu-msys2-64.exe
 call "%~0" msys64
 rem Sign all generated executables
-set sign "%~dp0*.exe"
+call sign "%~dp0*.exe"
 
 rem Final cleaning
 if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
