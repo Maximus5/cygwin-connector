@@ -361,8 +361,7 @@ static void sigfault(int sig)
 	if (sig == SIGSEGV)
 	{
 		write_verbose("\033[%u;40m{PID:%u} Failed to run shell (SIGSEGV)\033[m\r\n", pid?31:33, getpid());
-		if (!verbose)
-			print_shell_args();
+		print_shell_args();
 		// if we exit immediately, some versions of cygwin/msys will not be able to print our message
 		sleep(1);
 		exit(EFAULT);
@@ -460,6 +459,7 @@ void child_err_msg(const char* reason)
 	}
 	#endif
 	write_verbose("\033[30;41m\033[K{PID:%u} %s (%i): %s\033[m\r\n", getpid(), reason ? reason : "<unknown fail>", e, pszErDescr);
+	print_shell_args();
 }
 
 static int resize_pty(int pty, struct winsize *winp)
@@ -1319,7 +1319,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			write_verbose("\033[31;40m\033[K{PID:%u} Unknown switch: %s\033[m\r\n", getpid(), cur_argv[0]);
+			printf("{PID:%u} Unknown switch: %s\r\n", getpid(), cur_argv[0]);
 			exit(255);
 		}
 
