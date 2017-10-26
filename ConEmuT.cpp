@@ -1291,6 +1291,8 @@ int main(int argc, char** argv)
 		else if ((strcmp(cur_argv[0], "--wsl") == 0) || (strcmp(cur_argv[0], "--wslbridge") == 0))
 		{
 			wsl_bridge = true;
+			cur_argv++;
+			break;
 		}
 		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
 		{
@@ -1411,17 +1413,24 @@ int main(int argc, char** argv)
 		tcsetattr(0, TCSANOW, &attr);
 
 		// Invoke command
-		char * const def_argv[] = {"/usr/bin/bash", "-l", "-i", NULL};
-		// Shell command line is specified in connector's argv[]
-		// or just run default bash login shell
-		child_argv = cur_argv[0] ? cur_argv : def_argv;
 		// But if wslbridge was requested, we need more logic
 		char** buf_argv = NULL;
-		if (wsl_bridge)
+		if (!wsl_bridge)
 		{
+			static char * const def_argv[] = {"/usr/bin/bash", "-l", "-i", NULL};
+			// Shell command line is specified in connector's argv[]
+			// or just run default bash login shell
+			child_argv = cur_argv[0] ? cur_argv : def_argv;
+		}
+		else
+		{
+			// gh-1298: force to load `.profile` in WSL
+			static char * const tmp_argv_def[] = {"-t", "bash", "-l", "-i", NULL};
+			char * const * tmp_argv = cur_argv[0] ? cur_argv : tmp_argv_def;
+
 			// the "/.../.../wslbridge.exe" + "-eConEmuBuild" + "-eConEmuPID" and it's arguments from cur_argv?
 			int child_cnt = 3;
-			for (int i = 0; cur_argv[i]; ++i, ++child_cnt);
+			for (int i = 0; tmp_argv[i]; ++i, ++child_cnt);
 			// allocate +1 more item for terminating NULL
 			buf_argv = (char**)malloc((child_cnt+1) * sizeof(char*));
 
@@ -1445,9 +1454,9 @@ int main(int argc, char** argv)
 			}
 
 			// Prepare the tail, if exists
-			for (int i = 0; cur_argv[i]; ++i, ++child_cnt, ++iDst)
+			for (int i = 0; tmp_argv[i]; ++i, ++child_cnt, ++iDst)
 			{
-				buf_argv[iDst] = cur_argv[i];
+				buf_argv[iDst] = tmp_argv[i];
 			}
 
 			buf_argv[iDst] = NULL;
