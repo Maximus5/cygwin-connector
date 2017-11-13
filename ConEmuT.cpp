@@ -76,7 +76,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bool verbose = false;
 bool debugger = false;
-static int gnLogFile = -1;
+static int gnLogFileIn = -1;
+static int gnLogFileOut = -1;
+void safe_close(int& f);
 
 static void write_verbose(const char *buf, ...);
 static void print_version();
@@ -212,13 +214,8 @@ static void StopTermConnector()
 
 	memset(&Connector, 0, sizeof(Connector));
 
-	if (gnLogFile >= 0)
-	{
-		if (verbose)
-			write_verbose("\r\n\033[31;40m{PID:%u} closing log file (%i)\033[m\r\n", getpid(), gnLogFile);
-		close(gnLogFile);
-		gnLogFile = -1;
-	}
+	safe_close(gnLogFileIn);
+	safe_close(gnLogFileOut);
 
 	if (hConEmuHk)
 	{
@@ -384,9 +381,9 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 			// Server side, initialized
 
 			// First, log the string if required
-			if (gnLogFile >= 0)
+			if (gnLogFileOut >= 0)
 			{
-				write(gnLogFile, buf, len);
+				write(gnLogFileOut, buf, len);
 			}
 
 			// Dump to console
@@ -436,6 +433,17 @@ static void write_verbose(const char *buf, ...)
 	write_console((ilen > 0) ? szBuf : buf, -1, wps_Error);
 }
 
+void safe_close(int& f)
+{
+	if (f >= 0)
+	{
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} closing log file (%i)\033[m\r\n", getpid(), f);
+		close(f);
+		f = -1;
+	}
+}
+
 #if defined(SHOW_CHILD_ERR_MSG)
 void child_msg_box(const char* text, const char* title)
 {
@@ -481,11 +489,11 @@ static int resize_pty(int pty, struct winsize *winp)
 				write_verbose("\033[31;40m{PID:%u} ioctl(%i,TIOCSWINSZ,(%i,%i)) succeeded (%i)\033[m\r\n", getpid(), pty, winp->ws_col, winp->ws_row, iRc);
 		}
 
-		if (gnLogFile >= 0)
+		if (gnLogFileOut >= 0)
 		{
 			char szLogSize[80];
-			sprintf(szLogSize, "\x1B]9;11;\"TIOCSWINSZ(%i,%i) %s\"\x07", winp->ws_col, winp->ws_row, (iRc == -1) ? "failed" : "succeeded");
-			write(gnLogFile, szLogSize, strlen(szLogSize));
+			sprintf(szLogSize, "\n\x1B]9;11;\"TIOCSWINSZ(%i,%i) %s\"\x07\n", winp->ws_col, winp->ws_row, (iRc == -1) ? "failed" : "succeeded");
+			write(gnLogFileOut, szLogSize, strlen(szLogSize));
 		}
 	}
 	else
@@ -519,55 +527,84 @@ static bool query_console_size(struct winsize* winp)
 
 static DWORD WINAPI read_input_thread( void * )
 {
+	char log_input[200];
+
 	while (!termination)
 	{
+		log_input[0] = 0;
 		INPUT_RECORD r = {}; DWORD nReady = 0;
 		if (Connector.ReadInput(&r, 1, &nReady) && nReady)
 		{
-			#if defined(_USE_DEBUG_LOG_INPUT)
-			debug_log_format("read_input_thread: event %u received\n", r.EventType);
-			#endif
 			switch (r.EventType)
 			{
 			case WINDOW_BUFFER_SIZE_EVENT:
 			{
 				winsize winp;
-				debug_log_format("read_input_thread: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
+				if (gnLogFileIn >= 0)
+				{
+					sprintf(log_input, "input: WindowBufferSize (%i,%i)\n", r.Event.WindowBufferSizeEvent.dwSize.X, r.Event.WindowBufferSizeEvent.dwSize.Y);
+					write(gnLogFileIn, log_input, strlen(log_input));
+				}
+
 				if (query_console_size(&winp))
 				{
 					if (pty_fd >= 0)
 						resize_pty(pty_fd, &winp);
-					else
-						debug_log_format("read_input_thread: invalid pty_fd\n");
+					else if (gnLogFileIn >= 0)
+					{
+						const char* invalid_pty = "read_input_thread: invalid pty_fd\n";
+						write(gnLogFileIn, invalid_pty, strlen(invalid_pty));
+					}
+
 					if (pty_err >= 0)
 						resize_pty(pty_err, &winp);
 				}
 				else
 				{
-					debug_log_format("read_input_thread: query_console_size failed!!!\n");
+					const char* query_console_size_failed = "read_input_thread: query_console_size failed!!!\n";
+					write(gnLogFileIn, query_console_size_failed, strlen(query_console_size_failed));
 				}
 				break;
 			} // WINDOW_BUFFER_SIZE_EVENT
-			
+
 			case KEY_EVENT:
 			{
 				if (!r.Event.KeyEvent.bKeyDown)
+				{
+					if (gnLogFileIn >= 0)
+					{
+						sprintf(log_input, "input: KeyUp=%u skipped\n", r.Event.KeyEvent.wVirtualKeyCode);
+						write(gnLogFileIn, log_input, strlen(log_input));
+					}
 					break;
+				}
+
 				// special for 'Ctrl+Space'
 				if (r.Event.KeyEvent.wVirtualKeyCode == VK_SPACE || r.Event.KeyEvent.wVirtualKeyCode == '2' || r.Event.KeyEvent.wVirtualKeyCode == '`')
 				{
 					if (r.Event.KeyEvent.dwControlKeyState & (RIGHT_CTRL_PRESSED|LEFT_CTRL_PRESSED))
 					{
-						char s[5] = {0};
+						char zero = 0;
 						int len = 1; // 'Ctrl+Space' --> '\x00'
-						// TODO: Alt/Shift combo
-						ssize_t written = write(pty_fd, s, len);
-						#if defined(_USE_DEBUG_LOG_INPUT)
-						debug_log_format("read_input_thread: `\x%02u` written %i of %i bytes\n", (unsigned)s[0], written, len);
-						#endif
+						if (gnLogFileIn >= 0)
+						{
+							sprintf(log_input, "input: `\\x00`");
+							write(gnLogFileIn, log_input, strlen(log_input));
+						}
+
+						// #TODO: Alt/Shift combo?
+
+						ssize_t written = write(pty_fd, &zero, len);
+
+						if (gnLogFileIn >= 0)
+						{
+							sprintf(log_input, " written %i of %i bytes\n", written, len);
+							write(gnLogFileIn, log_input, strlen(log_input));
+						}
 						break;
 					}
 				}
+
 				if (r.Event.KeyEvent.uChar.UnicodeChar)
 				{
 					char s[5];
@@ -575,18 +612,35 @@ static DWORD WINAPI read_input_thread( void * )
 					if (len > 0)
 					{
 						s[len] = 0;
+						if (gnLogFileIn >= 0)
+						{
+							sprintf(log_input, "input: `%s`", s);
+							write(gnLogFileIn, log_input, strlen(log_input));
+						}
+
 						ssize_t written = write(pty_fd, s, len);
-						#if defined(_USE_DEBUG_LOG_INPUT)
-						debug_log_format("read_input_thread: `%s` written %i of %i bytes\n", s, written, len);
-						#endif
+
+						if (gnLogFileIn >= 0)
+						{
+							sprintf(log_input, " written %i of %i bytes\n", written, len);
+							write(gnLogFileIn, log_input, strlen(log_input));
+						}
 					}
 				}
 				break;
 			} // KEY_EVENT
 
+			default:
+				if (gnLogFileIn >= 0)
+				{
+					sprintf(log_input, "read_input_thread: event %u received\n", r.EventType);
+					write(gnLogFileIn, log_input, strlen(log_input));
+				}
+
 			} // switch (r.EventType)
 
 		} // if (Connector.ReadInput
+
 	} // while (!termination)
 
 	return 0;
@@ -990,11 +1044,8 @@ static int ce_forkpty(int *pmaster, int *pmaster_err, struct winsize *winp)
 
 
 		// Don't use logging descriptor in child
-		if (gnLogFile != -1)
-		{
-			close(gnLogFile);
-			gnLogFile = -1;
-		}
+		safe_close(gnLogFileIn);
+		safe_close(gnLogFileOut);
 
 		if (verbose)
 		{
@@ -1154,37 +1205,43 @@ void create_log_file(const char* pszDir)
 		strcpy(pszLog, "./");
 		iDirLen = 2;
 	}
-	sprintf(pszLog+iDirLen, "connector-%u.log", getpid());
 
-	// Let's create log file...
-	// umask(777); -- no need to reset?
-	gnLogFile = open(pszLog, O_WRONLY|O_CREAT|O_TRUNC, 0600);
-	// Succeeded?
-	if (gnLogFile >= 0)
+	for (int f = 0; f <= 1; ++f)
 	{
-		// There is some permission crazyness while creating new files
-		fchmod(gnLogFile, 0600);
+		int& gnLogFile = !f ? gnLogFileIn : gnLogFileOut;
 
-		// Write our full command line to first line of log-file
-		if ((pszCmdLine = GetCommandLineW()) != NULL)
+		sprintf(pszLog+iDirLen, "connector-%u-%s.log", getpid(), !f ? "in" : "out");
+
+		// Let's create log file...
+		// umask(777); -- no need to reset?
+		gnLogFile = open(pszLog, O_WRONLY|O_CREAT|O_TRUNC, 0600);
+		// Succeeded?
+		if (gnLogFile >= 0)
 		{
-			int wlen = lstrlenW(pszCmdLine);
-			int len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, 0, 0, 0, 0);
-			if (len > 0)
+			// There is some permission crazyness while creating new files
+			fchmod(gnLogFile, 0600);
+
+			// Write our full command line to first line of log-file
+			if ((pszCmdLine = GetCommandLineW()) != NULL)
 			{
-				char* pszUtf8 = (char*)malloc(len*sizeof(*pszUtf8));
-				if (pszUtf8 && ((len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, pszUtf8, len, 0, 0)) > 0))
+				int wlen = lstrlenW(pszCmdLine);
+				int len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, 0, 0, 0, 0);
+				if (len > 0)
 				{
-					write(gnLogFile, pszUtf8, len);
-					write(gnLogFile, "\n----------\n", 12);
+					char* pszUtf8 = (char*)malloc(len*sizeof(*pszUtf8));
+					if (pszUtf8 && ((len = WideCharToMultiByte(CP_UTF8, 0, pszCmdLine, wlen, pszUtf8, len, 0, 0)) > 0))
+					{
+						write(gnLogFile, pszUtf8, len);
+						write(gnLogFile, "\n----------\n", 12);
+					}
+					free(pszUtf8);
 				}
-				free(pszUtf8);
 			}
 		}
-	}
 
-	if (verbose)
-		write_verbose("\r\n\033[31;40m{PID:%u} fopen(`%s`) = %i\033[m\r\n", getpid(), pszLog, gnLogFile);
+		if (verbose)
+			write_verbose("\r\n\033[31;40m{PID:%u} fopen(`%s`) = %i\033[m\r\n", getpid(), pszLog, gnLogFile);
+	}
 
 	free(pszLog);
 }
@@ -1251,7 +1308,7 @@ int main(int argc, char** argv)
 		{
 			// User may or may not specify directory for log files
 			char* pszDir = (cur_argv[1] && (cur_argv[1][0] != '-')) ? cur_argv[1] : NULL;
-			if (gnLogFile == -1)
+			if (gnLogFileOut == -1)
 			{
 				// "[dir/]connector-%pid%.log"
 				create_log_file(pszDir);
