@@ -52,6 +52,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <process.h>
 #include <signal.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -217,8 +218,6 @@ static void debug_log_format(const char* format,...)
 static int pty_fd = -1, pty_err = -1;
 static int slave_std_err = -1, slave_std_out = -1;
 static pid_t pid = -1;
-static HANDLE input_thread = NULL;
-static DWORD input_tid = 0;
 static void stop_threads();
 static bool termination = false;
 static int check_child(bool force_print = false);
@@ -494,16 +493,18 @@ static bool query_console_size(struct winsize* winp)
 	return bRc;
 }
 
-static DWORD WINAPI read_input_thread( void * )
+bool read_input()
 {
 	char log_input[200];
-
-	while (!termination)
+	bool has_data = false;
+	if (!termination)
 	{
 		log_input[0] = 0;
 		INPUT_RECORD r = {}; DWORD nReady = 0;
 		if (Connector.ReadInput(&r, 1, &nReady) && nReady)
 		{
+			has_data = true;
+
 			switch (r.EventType)
 			{
 			case WINDOW_BUFFER_SIZE_EVENT:
@@ -521,7 +522,7 @@ static DWORD WINAPI read_input_thread( void * )
 						resize_pty(pty_fd, &winp);
 					else if (gnLogFileIn >= 0)
 					{
-						const char* invalid_pty = "read_input_thread: invalid pty_fd\n";
+						const char* invalid_pty = "input: invalid pty_fd\n";
 						write(gnLogFileIn, invalid_pty, strlen(invalid_pty));
 					}
 
@@ -530,7 +531,7 @@ static DWORD WINAPI read_input_thread( void * )
 				}
 				else
 				{
-					const char* query_console_size_failed = "read_input_thread: query_console_size failed!!!\n";
+					const char* query_console_size_failed = "input: query_console_size failed!!!\n";
 					write(gnLogFileIn, query_console_size_failed, strlen(query_console_size_failed));
 				}
 				break;
@@ -602,18 +603,16 @@ static DWORD WINAPI read_input_thread( void * )
 			default:
 				if (gnLogFileIn >= 0)
 				{
-					sprintf(log_input, "read_input_thread: event %u received\n", r.EventType);
+					sprintf(log_input, "input: event %u received\n", r.EventType);
 					write(gnLogFileIn, log_input, strlen(log_input));
 				}
-
 			} // switch (r.EventType)
-
 		} // if (Connector.ReadInput
+	} // if (!termination)
 
-	} // while (!termination)
-
-	return 0;
+	return has_data;
 }
+
 
 static void stop_threads()
 {
@@ -625,11 +624,6 @@ static void stop_threads()
 	}
 
 	StopTermConnector();
-
-	if (input_thread && (WaitForSingleObject(input_thread, 5000) == WAIT_TIMEOUT))
-	{
-		TerminateThread(input_thread, 100);
-	}
 }
 
 static int process_pty(int& pty, char* buf, const int bufCount, const int preferredCount)
@@ -709,17 +703,11 @@ static int run()
 	const int preferredCount = 280;
 	const int bufCount = 4096;
 	char buf[bufCount+1];
-	struct timeval timeout = {0, 100000}, *timeout_p = 0;
-
-	input_thread = CreateThread(NULL, 0, read_input_thread, NULL, 0, &input_tid);
-
-	if (!input_thread || (input_thread == INVALID_HANDLE_VALUE))
-	{
-		return GetLastError() ? GetLastError() : 100;
-	}
 
 	for (;;)
 	{
+		struct timeval timeout = {0, 100000}, *timeout_p = &timeout;
+
 		FD_ZERO(&fds);
 		if (pty_fd >= 0)
 		{
@@ -737,7 +725,7 @@ static int run()
 			else
 			{
 				// Pty gone, but process still there: keep checking?
-				timeout_p = &timeout;
+				timeout_p = NULL;
 			}
 		}
 
@@ -763,6 +751,14 @@ static int run()
 		else
 		{
 			debug_log_format("%u:PID=%u:TID=%u: select failed\n", GetTickCount(), getpid(), GetCurrentThreadId());
+		}
+
+		DWORD start_tick = GetTickCount(), end_tick;
+		while (read_input())
+		{
+			end_tick = GetTickCount();
+			if ((end_tick - start_tick) >= 25)
+				break;
 		}
 	}
 
