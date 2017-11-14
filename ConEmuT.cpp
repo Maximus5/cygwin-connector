@@ -86,42 +86,11 @@ static void print_version();
 #include "version.h"
 
 
-enum RequestTermConnectorMode
-{
-	rtc_Start = 1,
-	rtc_Stop  = 2,
-};
+#include "ConnectorAPI.h"
+// enum RequestTermConnectorMode
+// enum WriteProcessedStream
+// struct tag_RequestTermConnectorParm
 
-enum WriteProcessedStream
-{
-	wps_Output = 1,
-	wps_Error  = 2,
-};
-
-typedef struct tag_RequestTermConnectorParm
-{
-	// [IN]  size in bytes of this structure
-	DWORD cbSize;
-	// [IN]  requrested operation
-	RequestTermConnectorMode Mode;
-
-	// [IN]  dump initialization steps to console
-	BOOL bVerbose;
-
-	// [IN]  ttyname(STDOUT_FILENO)
-	LPCSTR pszTtyName;
-	// [IN]  $TERM
-	LPCSTR pszTerm;
-
-	// [OUT] If there were any errors, here may be some details
-	LPCSTR pszError;
-
-	// [OUT] This one is UNICODE
-	BOOL (WINAPI* ReadInput)(PINPUT_RECORD,DWORD,PDWORD);
-	// [OUT] But this is ANSI (UTF-8 is expected)
-	//       cbWrite==-1 : pBuffer contains ASCIIZ string, call strlen on it
-	BOOL (WINAPI* WriteText)(LPCSTR pBuffer, DWORD cbWrite, PDWORD pcbWritten, WriteProcessedStream nStream);
-} RequestTermConnectorParm;
 
 static HMODULE hConEmuHk = NULL;
 static RequestTermConnectorParm Connector = {};
