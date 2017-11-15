@@ -81,6 +81,7 @@ bool debugger = false;
 static int gnLogFileIn = -1;
 static int gnLogFileOut = -1;
 void safe_close(int& f);
+char* get_cygwin_root();
 
 static void write_verbose(const char *buf, ...);
 static void print_version();
@@ -222,7 +223,6 @@ static pid_t pid = -1;
 static void stop_threads();
 static bool termination = false;
 static int check_child(bool force_print = false);
-char* get_cygwin_root();
 
 static BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
