@@ -60,6 +60,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/wait.h>
 #include <sys/select.h>
 #include <sys/termios.h>
+#include <sys/cygwin.h>
 
 #include <w32api/wtypes.h>
 #include <w32api/wincon.h>
@@ -143,13 +144,13 @@ static int RequestTermConnector()
 	}
 	else
 	{
-
 		// Prepare arguments
 		memset(&Connector, 0, sizeof(Connector));
 		Connector.cbSize = sizeof(Connector);
 		Connector.Mode = rtc_Start;
 		Connector.pszTtyName = ttyname(STDOUT_FILENO);
 		Connector.pszTerm = getenv("TERM");
+		Connector.pszMntPrefix = get_cygwin_root();
 
 		iRc = fnRequestTermConnector(&Connector);
 
@@ -221,6 +222,7 @@ static pid_t pid = -1;
 static void stop_threads();
 static bool termination = false;
 static int check_child(bool force_print = false);
+char* get_cygwin_root();
 
 static BOOL WINAPI CtrlHandlerRoutine(DWORD dwCtrlType)
 {
@@ -1211,6 +1213,53 @@ void create_log_file(const char* pszDir)
 	free(pszLog);
 }
 
+char* get_cygwin_root()
+{
+	char* posix = NULL;
+	ssize_t cvtlen = -1;
+	const char* src_path = "c:\\";
+	const char* chk_path = "/c/";
+
+	#if defined(HAS_FORKPTY)
+	cvtlen = cygwin_conv_path(CCP_WIN_A_TO_POSIX, "c:\\", NULL, 0);
+	if (cvtlen > 0)
+	{
+		posix = (char*)malloc(cvtlen);
+		cvtlen = cygwin_conv_path(CCP_WIN_A_TO_POSIX, "c:\\", posix, cvtlen);
+	}
+	#else
+		//MSYS1 has only deprecated cygwin_conv_to_full_posix_path
+		posix = (char*)malloc(MAX_PATH);
+		cvtlen = cygwin_conv_to_full_posix_path("c:\\", posix);
+	#endif
+
+	if (posix && cvtlen == 0)
+	{
+		if (strcmp(posix, "/c/") == 0 || strcmp(posix, "/c") == 0)
+		{
+			*posix = 0;
+		}
+		else
+		{
+			char* drv = strstr(posix, chk_path);
+			if (!drv)
+			{
+				// printf("rc=%i path='%s' not found '%s'\n", cvtlen, posix?posix:"null", chk_path);
+				free(posix);
+				posix = NULL;
+			}
+			else
+			{
+				*drv = 0;
+			}
+		}
+	}
+
+	// printf("rc=%i root='%s'\n", cvtlen, posix?posix:"null");
+
+	return posix;
+}
+
 int main(int argc, char** argv)
 {
 	int iMainRc = 254;
@@ -1316,7 +1365,7 @@ int main(int argc, char** argv)
 			cur_argv++;
 			break;
 		}
-		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0))
+		else if ((strcmp(cur_argv[0], "--help") == 0) || (strcmp(cur_argv[0], "-h") == 0) || (strcmp(cur_argv[0], "-?") == 0))
 		{
 			char* exe_name;
 			if (argv[0])
@@ -1326,8 +1375,9 @@ int main(int argc, char** argv)
 			}
 			pid = 0;
 			print_version();
+			printf("Windows drive mount root: `%s`\n", get_cygwin_root());
 			printf("Usage: %s [switches] [- | shell [shell switches]]\n", exe_name ? exe_name : "conemu-*-*.exe");
-			printf("  -h, --help       this help\n");
+			printf("  -?, -h, --help   this help\n");
 			printf("  -d, --dir <dir>  chdir to `dir` before starting shell\n");
 			printf("                   forces `set CHERE_INVOKING=1`\n");
 			printf("  -t <new-term>    forces `set TERM=new-term`\n");

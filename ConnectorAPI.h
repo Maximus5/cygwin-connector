@@ -1,4 +1,4 @@
-﻿
+
 /*
 Copyright (c) 2015-2017 Maximus5
 All rights reserved.
