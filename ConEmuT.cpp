@@ -727,7 +727,6 @@ static int run()
 			else
 			{
 				// Pty gone, but process still there: keep checking?
-				timeout_p = NULL;
 			}
 		}
 
