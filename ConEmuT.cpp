@@ -495,17 +495,24 @@ static bool query_console_size(struct winsize* winp)
 	return bRc;
 }
 
+// returns true on more events in queue
 bool read_input()
 {
 	char log_input[200];
-	bool has_data = false;
+	bool has_more_data = false;
 	if (!termination)
 	{
 		log_input[0] = 0;
-		INPUT_RECORD r = {}; DWORD nReady = 0;
-		if (Connector.ReadInput(&r, 1, &nReady) && nReady)
+		DWORD nReady = 0;
+		const DWORD buffer_max = 32;
+		INPUT_RECORD rr[buffer_max] = {};
+		ReadInputResult read_rc = Connector.ReadInput(rr, buffer_max, &nReady);
+		if (!read_rc || !nReady)
+			return false;
+		has_more_data = (read_rc == rir_Ready_More);
+		for (DWORD n = 0; n < nReady; ++n)
 		{
-			has_data = true;
+			const INPUT_RECORD& r = rr[n];
 
 			switch (r.EventType)
 			{
@@ -612,7 +619,7 @@ bool read_input()
 		} // if (Connector.ReadInput
 	} // if (!termination)
 
-	return has_data;
+	return has_more_data;
 }
 
 
@@ -708,7 +715,7 @@ static int run()
 
 	for (;;)
 	{
-		struct timeval timeout = {0, 100000}, *timeout_p = &timeout;
+		struct timeval timeout = {0, 100000};
 
 		FD_ZERO(&fds);
 		if (pty_fd >= 0)
@@ -732,8 +739,8 @@ static int run()
 
 		const int fdsmax = _max(pty_fd,pty_err) + 1;
 		debug_log_format("%u:PID=%u:TID=%u: calling select on (%i,%i)\n", GetTickCount(), getpid(), GetCurrentThreadId(), pty_fd, pty_err);
-		timeout.tv_usec = 100000;
-		if (select(fdsmax, &fds, 0, 0, timeout_p) > 0)
+		timeout.tv_usec = 10000;
+		if (select(fdsmax, &fds, 0, 0, &timeout) > 0)
 		{
 			if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds))
 			{
@@ -758,7 +765,7 @@ static int run()
 		while (read_input())
 		{
 			end_tick = GetTickCount();
-			if ((end_tick - start_tick) >= 25)
+			if ((end_tick - start_tick) >= 10)
 				break;
 		}
 	}

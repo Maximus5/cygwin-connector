@@ -46,6 +46,15 @@ enum WriteProcessedStream
 /* excerpt from Ansi.h end */
 #endif
 
+// this is bit-mask
+enum ReadInputResult
+{
+	rir_None  = 0, // there were no INPUT_RECORD events
+	rir_Ready = 1, // buffer contains result_count events 
+	rir_More  = 2, // console queue has more events
+	rir_Ready_More = rir_Ready|rir_More,
+};
+
 struct RequestTermConnectorParm
 {
 	// [IN]  size in bytes of this structure
@@ -68,7 +77,7 @@ struct RequestTermConnectorParm
 	LPCSTR pszError;
 
 	// [OUT] This one is UNICODE
-	BOOL (WINAPI* ReadInput)(PINPUT_RECORD, DWORD, PDWORD);
+	ReadInputResult (WINAPI* ReadInput)(PINPUT_RECORD buffer, DWORD buffer_count, PDWORD result_count);
 	// [OUT] But this is ANSI (UTF-8 is expected)
 	//       cbWrite==-1 : pBuffer contains ASCIIZ string, call strlen on it
 	BOOL (WINAPI* WriteText)(LPCSTR pBuffer, DWORD cbWrite, PDWORD pcbWritten, WriteProcessedStream nStream);
