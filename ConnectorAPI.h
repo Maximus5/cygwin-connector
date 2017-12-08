@@ -60,7 +60,7 @@ struct RequestTermConnectorParm
 	// [IN]  size in bytes of this structure
 	DWORD cbSize;
 	// [IN]  requrested operation
-	RequestTermConnectorMode Mode;
+	enum RequestTermConnectorMode Mode;
 
 	// [IN]  dump initialization steps to console
 	BOOL bVerbose;
@@ -77,8 +77,8 @@ struct RequestTermConnectorParm
 	LPCSTR pszError;
 
 	// [OUT] This one is UNICODE
-	ReadInputResult (WINAPI* ReadInput)(PINPUT_RECORD buffer, DWORD buffer_count, PDWORD result_count);
+	enum ReadInputResult (WINAPI* ReadInput)(PINPUT_RECORD buffer, DWORD buffer_count, PDWORD result_count);
 	// [OUT] But this is ANSI (UTF-8 is expected)
 	//       cbWrite==-1 : pBuffer contains ASCIIZ string, call strlen on it
-	BOOL (WINAPI* WriteText)(LPCSTR pBuffer, DWORD cbWrite, PDWORD pcbWritten, WriteProcessedStream nStream);
+	BOOL (WINAPI* WriteText)(LPCSTR pBuffer, DWORD cbWrite, PDWORD pcbWritten, enum WriteProcessedStream nStream);
 };

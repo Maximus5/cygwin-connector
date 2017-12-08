@@ -9,3 +9,4 @@ FarMenu.ini
 /tests
 /v*.*/
 set_vars_user.cmd
+ConEmuT.c
