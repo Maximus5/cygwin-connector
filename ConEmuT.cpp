@@ -1330,7 +1330,8 @@ int main(int argc, char** argv)
 			char* pszDir = (cur_argv[1] && (cur_argv[1][0] != '-')) ? cur_argv[1] : NULL;
 			if (gnLogFileOut == -1)
 			{
-				// "[dir/]connector-%pid%.log"
+				// "[dir/]connector-%pid%-in.log"
+				// "[dir/]connector-%pid%-out.log"
 				create_log_file(pszDir);
 			}
 			else
@@ -1386,6 +1387,8 @@ int main(int argc, char** argv)
 			printf("  -?, -h, --help   this help\n");
 			printf("  -d, --dir <dir>  chdir to `dir` before starting shell\n");
 			printf("                   forces `set CHERE_INVOKING=1`\n");
+			printf("  -l, --log <dir>  write console IN and OUT to files in `dir` folder\n");
+			printf("                   use current folder if <dir> is not specified`\n");
 			printf("  -t <new-term>    forces `set TERM=new-term`\n");
 			printf("      --debug      wait for debugger for 60 seconds\n");
 			printf("      --environ    print environment on startup\n");
