@@ -1509,8 +1509,12 @@ int main(int argc, char** argv)
 			static char * const tmp_argv_def[] = {"-t", "bash", "-l", "-i", NULL};
 			char * const * tmp_argv = cur_argv[0] ? cur_argv : tmp_argv_def;
 
-			// the "/.../.../wslbridge.exe" + "-eConEmuBuild" + "-eConEmuPID" and it's arguments from cur_argv?
-			int child_cnt = 3;
+			// the "/.../.../wslbridge.exe" + "-eConEmuBuild" + ... + "-eConEmuPID" + arguments from cur_argv
+			int child_cnt = 1; // .exe
+			// Bypass to linux side env.var "ConEmuBuild", "ConEmuPID", "ConEmuServerPID" (JFI)
+			const char* env_var[] = {"-eConEmuBuild", "-eConEmuPID", "-eConEmuServerPID", NULL};
+			for (int i = 0; env_var[i]; ++i, ++child_cnt);
+			// tail arguments
 			for (int i = 0; tmp_argv[i]; ++i, ++child_cnt);
 			// allocate +1 more item for terminating NULL
 			buf_argv = (char**)malloc((child_cnt+1) * sizeof(char*));
@@ -1526,8 +1530,6 @@ int main(int argc, char** argv)
 			strcpy(slash, wslbridge_exe);
 
 			int iDst = 1;
-			// Bypass to linux side env.var "ConEmuBuild" and "ConEmuPID" (JFI)
-			const char* env_var[] = {"-eConEmuBuild", "-eConEmuPID", NULL};
 			for (int i = 0; env_var[i]; ++i, ++iDst)
 			{
 				buf_argv[iDst] = (char*)malloc((strlen(env_var[i])+1)*sizeof(**buf_argv));
