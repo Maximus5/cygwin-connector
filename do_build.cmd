@@ -40,7 +40,7 @@ rem Sign all generated executables
 call sign "%~dp0*.exe"
 
 rem Final cleaning
-if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
+if exist connector.res.o ( del connector.res.o > nul )
 
 goto :EOF
 
@@ -96,18 +96,18 @@ goto :EOF
 setlocal
 call cecho /yellow "Using: `%toolchain%` for `%exe_name%` %DIRBIT%bit"
 
-if exist ConEmuT.res.o ( del ConEmuT.res.o > nul )
+if exist connector.res.o ( del connector.res.o > nul )
 call cecho /green "Compiling resources"
 rem if %verbose%==YES echo %PATH%
 if %verbose%==YES where windres.exe
-if %verbose%==YES echo windres.exe %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o
-windres %RCFLAGS% -i ConEmuT.rc -o ConEmuT.res.o 2> "%exe_name%.log"
+if %verbose%==YES echo windres.exe %RCFLAGS% -i connector.rc -o connector.res.o
+windres %RCFLAGS% -i connector.rc -o connector.res.o 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 call cecho /green "Compiling code and linking"
 if %verbose%==YES which gcc.exe
-if %verbose%==YES echo gcc -fno-rtti %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG%
-gcc -fno-rtti %LOGGING% ConEmuT.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker ConEmuT.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
+if %verbose%==YES echo gcc -fno-rtti %LOGGING% connector.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker connector.res.o -mconsole -m%DIRBIT% %NO_DEBUG%
+gcc -fno-rtti %LOGGING% connector.cpp -o %exe_name% %USE_GCC_STATIC% -Xlinker connector.res.o -mconsole -m%DIRBIT% %NO_DEBUG% 2> "%exe_name%.log"
 if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign

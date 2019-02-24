@@ -1169,6 +1169,12 @@ void create_log_file(const char* pszDir)
 	if (iDirLen > 0)
 	{
 		strcpy(pszLog, pszDir);
+		char* slash = strchr(pszLog, '\\');
+		while (slash)
+		{
+			*slash = '/';
+			slash = strchr(slash + 1, '\\');
+		}
 		// add posix-way trailing slash if absent
 		if (!strchr("\\/", pszDir[iDirLen-1]))
 			pszLog[iDirLen++] = '/';
@@ -1178,6 +1184,8 @@ void create_log_file(const char* pszDir)
 		strcpy(pszLog, "./");
 		iDirLen = 2;
 	}
+	if (verbose)
+		write_verbose("{PID:%u} creating logs in: %s\r\n", getpid(), pszLog);
 
 	for (int f = 0; f <= 1; ++f)
 	{
@@ -1213,7 +1221,7 @@ void create_log_file(const char* pszDir)
 		}
 
 		if (verbose)
-			write_verbose("\r\n\033[31;40m{PID:%u} fopen(`%s`) = %i\033[m\r\n", getpid(), pszLog, gnLogFile);
+			write_verbose("{PID:%u} fopen(`%s`) = %i\r\n", getpid(), pszLog, gnLogFile);
 	}
 
 	free(pszLog);
