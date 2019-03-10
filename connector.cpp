@@ -336,6 +336,35 @@ static void sigfault(int sig)
 }
 
 
+static void log_system_time(bool force)
+{
+	if (gnLogFileOut < 0)
+		return;
+	struct timespec ts = {};
+	#if defined(HAS_FORKPTY)
+	clock_gettime(CLOCK_REALTIME, &ts);
+	#else
+	ts.tv_sec = time(0);  // msys1 does not have clock_gettime
+	#endif
+	if (ts.tv_sec)
+	{
+		const long long min_diff = 500;
+		static long long last_ms = 0;
+		long long cur_ms = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+		long long diff_ms = (cur_ms > last_ms) ? (cur_ms - last_ms) : (last_ms - cur_ms);
+		if (force || (min_diff >= min_diff))
+		{
+			char log_time[80];
+			const struct tm* ltm;
+			ltm = localtime(&ts.tv_sec);
+			sprintf(log_time, "\x1B]9;11;\"%02i:%02i:%02i.%03i\"\x07", ltm->tm_hour, ltm->tm_min, ltm->tm_sec, ts.tv_nsec / 1000000);
+			write(gnLogFileOut, log_time, strlen(log_time));
+			if (!force)
+				last_ms = cur_ms;
+		}
+	}
+}
+
 static bool write_console(const char *buf, int len, WriteProcessedStream strm = wps_Output)
 {
 	if (len == -1)
@@ -353,6 +382,7 @@ static bool write_console(const char *buf, int len, WriteProcessedStream strm = 
 			// First, log the string if required
 			if (gnLogFileOut >= 0)
 			{
+				log_system_time(false);
 				write(gnLogFileOut, buf, len);
 			}
 
@@ -462,7 +492,8 @@ static int resize_pty(int pty, struct winsize *winp)
 		if (gnLogFileOut >= 0)
 		{
 			char szLogSize[80];
-			sprintf(szLogSize, "\n\x1B]9;11;\"TIOCSWINSZ(%i,%i) %s\"\x07\n", winp->ws_col, winp->ws_row, (iRc == -1) ? "failed" : "succeeded");
+			log_system_time(true);
+			sprintf(szLogSize, "\x1B]9;11;\"TIOCSWINSZ(%i,%i) %s\"\x07\n", winp->ws_col, winp->ws_row, (iRc == -1) ? "failed" : "succeeded");
 			write(gnLogFileOut, szLogSize, strlen(szLogSize));
 		}
 	}
@@ -1224,6 +1255,7 @@ void create_log_file(const char* pszDir)
 			write_verbose("{PID:%u} fopen(`%s`) = %i\r\n", getpid(), pszLog, gnLogFile);
 	}
 
+	log_system_time(true);
 	free(pszLog);
 }
 
