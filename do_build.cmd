@@ -36,8 +36,17 @@ rem *** conemu-msys2-32.exe
 call "%~0" msys32
 rem *** conemu-msys2-64.exe
 call "%~0" msys64
-rem Sign all generated executables
-call sign "%~dp0*.exe"
+
+if exist "%~dp0..\..\..\Deploy\sign_any.cmd" (
+  rem Sign all generated executables
+  call "%~dp0..\..\..\Deploy\sign_any.cmd" "%~dp0*.exe"
+) else (
+  echo ***************************************
+  echo ***************************************
+  echo **  Connector files were not signed  **
+  echo ***************************************
+  echo ***************************************
+)
 
 rem Final cleaning
 if exist connector.res.o ( del connector.res.o > nul )
@@ -112,7 +121,7 @@ if errorlevel 1 goto print_errors
 
 if NOT "%sign_code%" == "YES" goto skip_sign
 call cecho /green "Signing `%exe_name%`"
-call sign "%exe_name%" > nul
+call "%~dp0..\..\..\Deploy\sign_any.cmd" "%exe_name%" > nul
 :skip_sign
 
 endlocal
