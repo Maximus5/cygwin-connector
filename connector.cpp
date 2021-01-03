@@ -526,6 +526,43 @@ static bool query_console_size(struct winsize* winp)
 	return bRc;
 }
 
+void write_input_buffered(char* data, int len)
+{
+	const int buffer_max = 16;
+	static char buffer[buffer_max] = "";
+	static int buffer_used = 0;
+	char log_input[80];
+
+	if (data == NULL || len <= 0)
+	{
+		if (buffer_used > 0)
+		{
+			ssize_t written = write(pty_fd, buffer, buffer_used);
+
+			if (gnLogFileIn >= 0)
+			{
+				sprintf(log_input, " written %i of %i bytes\n", written, buffer_used);
+				write(gnLogFileIn, log_input, strlen(log_input));
+			}
+		}
+		buffer_used = 0;
+		return;
+	}
+
+	for (int i = 0; i < len; ++i)
+	{
+		if (data[i] == 27 || buffer_used == buffer_max)
+		{
+			write_input_buffered(NULL, 0);
+		}
+
+		buffer[buffer_used++] = data[i];
+	}
+
+	sprintf(log_input, " buffered, total %i bytes\n", buffer_used);
+	write(gnLogFileIn, log_input, strlen(log_input));
+}
+
 // returns true on more events in queue
 bool read_input()
 {
@@ -558,6 +595,8 @@ bool read_input()
 
 				if (query_console_size(&winp))
 				{
+					write_input_buffered(NULL, 0);
+
 					if (pty_fd >= 0)
 						resize_pty(pty_fd, &winp);
 					else if (gnLogFileIn >= 0)
@@ -598,19 +637,14 @@ bool read_input()
 						int len = 1; // 'Ctrl+Space' --> '\x00'
 						if (gnLogFileIn >= 0)
 						{
-							sprintf(log_input, "input: `\\x00`");
+							sprintf(log_input, "input: `\\x00` ");
 							write(gnLogFileIn, log_input, strlen(log_input));
 						}
 
 						// #TODO: Alt/Shift combo?
 
-						ssize_t written = write(pty_fd, &zero, len);
+						write_input_buffered(&zero, len);
 
-						if (gnLogFileIn >= 0)
-						{
-							sprintf(log_input, " written %i of %i bytes\n", written, len);
-							write(gnLogFileIn, log_input, strlen(log_input));
-						}
 						break;
 					}
 				}
@@ -624,17 +658,11 @@ bool read_input()
 						s[len] = 0;
 						if (gnLogFileIn >= 0)
 						{
-							sprintf(log_input, "input: `%s`", s);
+							sprintf(log_input, "input: `%s` ", s);
 							write(gnLogFileIn, log_input, strlen(log_input));
 						}
 
-						ssize_t written = write(pty_fd, s, len);
-
-						if (gnLogFileIn >= 0)
-						{
-							sprintf(log_input, " written %i of %i bytes\n", written, len);
-							write(gnLogFileIn, log_input, strlen(log_input));
-						}
+						write_input_buffered(s, len);
 					}
 				}
 				break;
@@ -648,6 +676,12 @@ bool read_input()
 				}
 			} // switch (r.EventType)
 		} // if (Connector.ReadInput
+
+		if (!has_more_data)
+		{
+			write_input_buffered(NULL, 0);
+		}
+
 	} // if (!termination)
 
 	return has_more_data;
